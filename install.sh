@@ -1,229 +1,239 @@
 #!/bin/bash
 
 clear
-echo "🔥 CL TECH OS — CONTROLE TOTAL 🔥"
+echo -e "\e[95m🔥 CL TECH OS — CONTROLE TOTAL 🔥\e[0m"
 
 # =========================
-# MENSAGENS DINÂMICAS
+# MENSAGENS SAFADAS (GRANDES E ROSA)
 # =========================
 msgs=(
-"Vitória foi detectada no sistema..."
-"Malena acessou área restrita..."
-"Mia está sendo monitorada..."
-"Usuário desconhecido tentando acesso..."
-"Interceptando dados externos..."
-"Pacotes suspeitos analisados..."
-"Firewall reagindo..."
-"Conexão instável detectada..."
-"Processo oculto identificado..."
-"Executando protocolo secreto..."
-"Atividade incomum registrada..."
-"Alerta: acesso não autorizado..."
-"Carregando módulos ocultos..."
-"Sincronizando com servidor externo..."
-"Reconfigurando núcleo do sistema..."
-"Inicializando modo stealth..."
-"Descriptografando dados..."
-"Aplicando camadas de segurança..."
+"Mia está molhadinha e querendo..."
+"Mai tem peitos grandes né? 🍒"
+"Malena está mastigando a calcinha..."
+"Vitória tá rebolando gostoso no seu colo..."
+"Clara tá sem calcinha te esperando..."
+"Sophia gemeu seu nome agora..."
+"Juliana tá se tocando pensando em você..."
+"Beatriz tá toda suada e nua na cama..."
+"Luana tá abrindo as pernas devagar..."
+"Isabela tá pingando de tesão..."
+"Manuela quer sentar gostoso em você..."
+"Larissa tá chupando o dedo imaginando..."
+"Camila tá rebolando a bunda na sua frente..."
+"Gabriela tá de quatro te chamando..."
+"Ana Clara tá toda melada e safada..."
+"Maria Eduarda tá gemendo alto..."
+"Letícia tá se masturbando no banheiro..."
+"Raquel tá com a bucetinha inchada de tesão..."
+"Sofia tá pedindo pra você meter forte..."
+"Marina tá toda molhada e safada..."
 )
 
 random_msg() {
-  echo "⚡ ${msgs[$RANDOM % ${#msgs[@]}]}"
+  echo -e "\e[95m${msgs[$RANDOM % ${#msgs[@]}]}\e[0m"
 }
 
-loading() {
-  for i in {1..20}; do
+# Animação de arquivos sendo transferidos
+transfer_animation() {
+  local frames=("⬇️📁 [===>     ]" "⬇️📂 [====>    ]" "⬇️📁 [=====>   ]" 
+                "⬇️📂 [=======> ]" "⬇️📁 [========>]")
+  for i in {1..25}; do
     random_msg
-    sleep 0.08
+    echo -e "\e[96m${frames[$((i % 5))]}\e[0m"
+    sleep 0.18
   done
 }
+
+# =========================
+# VERIFICAÇÕES INICIAIS
+# =========================
+if [ "$EUID" -ne 0 ]; then
+  echo -e "\e[91m❌ Execute como root: sudo bash install.sh\e[0m"
+  exit 1
+fi
 
 # =========================
 # VARIÁVEIS
 # =========================
 BASE_DIR="/opt/cltech"
-LOG_DIR="$BASE_DIR/logs"
-DATA_DIR="$BASE_DIR/data"
-USER_DIR="$BASE_DIR/users"
+mkdir -p $BASE_DIR/{logs,data,users,public}
+
+cd $BASE_DIR
 
 # =========================
-# UPDATE
+# INSTALAÇÃO
 # =========================
-echo "🔄 Atualizando sistema..."
-loading
-apt update -y
+echo -e "\e[95m🔄 Atualizando sistema...\e[0m"
+transfer_animation
+apt update -y && apt upgrade -y
 
-# =========================
-# DEPENDÊNCIAS
-# =========================
-echo "📦 Instalando dependências..."
-loading
-apt install -y curl git nodejs npm wget qrencode
+echo -e "\e[95m📦 Instalando dependências...\e[0m"
+transfer_animation
+apt install -y curl git nodejs npm wget qrencode build-essential python3
 
 npm install -g pm2
 
-# =========================
-# CLOUDFLARE
-# =========================
-echo "🌐 Instalando Cloudflare..."
-loading
-wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-dpkg -i cloudflared-linux-amd64.deb
-
-# =========================
-# ESTRUTURA
-# =========================
-echo "📁 Criando estrutura..."
-loading
-mkdir -p $BASE_DIR/{logs,data,users,public}
-cd $BASE_DIR
-
-echo "[]" > $USER_DIR/users.json
+# Cloudflared
+echo -e "\e[95m🌐 Instalando Cloudflared...\e[0m"
+transfer_animation
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -O /tmp/cloudflared.deb
+dpkg -i /tmp/cloudflared.deb || apt install -f -y
+rm -f /tmp/cloudflared.deb
 
 # =========================
 # BACKEND
 # =========================
-echo "🧠 Criando backend..."
-loading
+echo -e "\e[95m🧠 Criando backend...\e[0m"
+transfer_animation
+
 cat << 'EOF' > server.js
-const express = require('express')
-const fs = require('fs')
-const bcrypt = require('bcrypt')
-const os = require('os')
-const { exec } = require('child_process')
+const express = require('express');
+const fs = require('fs');
+const bcrypt = require('bcrypt');
+const os = require('os');
 
-const app = express()
-app.use(express.json())
-app.use(express.static('public'))
+const app = express();
+app.use(express.json());
+app.use(express.static('public'));
 
-const USERS_FILE = './users/users.json'
+const USERS_FILE = './users/users.json';
 
-function loadUsers(){
- return JSON.parse(fs.readFileSync(USERS_FILE))
+function loadUsers() {
+  try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } 
+  catch { return []; }
+}
+function saveUsers(users) { 
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2)); 
 }
 
-function saveUsers(users){
- fs.writeFileSync(USERS_FILE, JSON.stringify(users,null,2))
-}
+app.post('/register', async (req, res) => {
+  const { user, pass } = req.body;
+  let users = loadUsers();
+  const hash = await bcrypt.hash(pass, 10);
+  users.push({ user, pass: hash });
+  saveUsers(users);
+  res.json({ ok: true });
+});
 
-app.post('/register', async (req,res)=>{
- const {user,pass} = req.body
- let users = loadUsers()
- const hash = await bcrypt.hash(pass,10)
- users.push({user,pass:hash})
- saveUsers(users)
- res.send({ok:true})
-})
+app.post('/login', async (req, res) => {
+  const { user, pass } = req.body;
+  let users = loadUsers();
+  const found = users.find(u => u.user === user);
+  if (!found || !(await bcrypt.compare(pass, found.pass))) {
+    return res.status(401).json({ ok: false });
+  }
+  res.json({ ok: true });
+});
 
-app.post('/login', async (req,res)=>{
- const {user,pass} = req.body
- let users = loadUsers()
- const found = users.find(u=>u.user===user)
- if(!found) return res.status(401).send()
- const ok = await bcrypt.compare(pass, found.pass)
- if(ok) return res.send({ok:true})
- res.status(401).send()
-})
-
-app.get('/monitor',(req,res)=>{
- res.json({
-  cpu:(Math.random()*100).toFixed(2),
-  ram:((os.totalmem()-os.freemem())/os.totalmem()*100).toFixed(2),
-  uptime: os.uptime()
- })
-})
-
-app.get('/pm2',(req,res)=>{
- exec('pm2 list',(e,out)=>res.send(out))
-})
-
-app.post('/cmd',(req,res)=>{
- exec(req.body.cmd,(e,out)=>res.send(out))
-})
-
-app.listen(3000,()=>console.log("🔥 SERVER ONLINE"))
+app.listen(3000, () => console.log("🔥 CL TECH SERVER ONLINE"));
 EOF
 
+echo "[]" > users/users.json
 npm init -y > /dev/null 2>&1
 npm install express bcrypt
 
 # =========================
-# FRONTEND
+# FRONTEND REFINADO
 # =========================
-echo "🎨 Criando interface..."
-loading
+echo -e "\e[95m🎨 Criando Gerenciador de Rede...\e[0m"
+transfer_animation
+
 cat << 'EOF' > public/index.html
 <!DOCTYPE html>
 <html>
-<body style="background:#000;color:#0f0;font-family:monospace">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { 
+      background: #000; 
+      color: #ff69b4; 
+      font-family: monospace; 
+      text-align: center; 
+      padding: 30px; 
+    }
+    h1 { font-size: 2.8em; text-shadow: 0 0 10px #ff69b4; }
+    input, button { 
+      margin: 12px; 
+      padding: 15px; 
+      background: #111; 
+      color: #ff69b4; 
+      border: 2px solid #ff69b4; 
+      font-size: 1.1em;
+      width: 320px;
+    }
+    button { cursor: pointer; font-weight: bold; }
+    button:hover { background: #ff69b4; color: black; }
+    #status { margin-top: 20px; font-size: 1.3em; min-height: 80px; }
+  </style>
+</head>
+<body>
+  <h1>🔥 CL TECH OS</h1>
+  <h2>GERENCIADOR DE REDE</h2>
+  
+  <input id="user" placeholder="Usuário"><br>
+  <input id="pass" type="password" placeholder="Senha"><br>
+  <button onclick="login()">ENTRAR NO SISTEMA</button>
+  
+  <br><br>
+  <button onclick="startTunnel()">🚀 ABRIR CLOUDFLARE TUNNEL</button>
+  
+  <pre id="status"></pre>
 
-<h2>CL TECH CONTROL</h2>
+  <script>
+  async function login(){
+    const r = await fetch('/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user: user.value, pass: pass.value})
+    });
+    const data = await r.json();
+    document.getElementById('status').innerHTML = data.ok ? 
+      "✅ <span style='color:#0f0'>ACESSO LIBERADO</span>" : 
+      "❌ <span style='color:#f00'>LOGIN FALHOU</span>";
+  }
 
-<input id="user" placeholder="user">
-<input id="pass" type="password" placeholder="pass">
-<button onclick="login()">Login</button>
-
-<pre id="out"></pre>
-
-<script>
-async function login(){
- let r=await fetch('/login',{
-  method:'POST',
-  headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({
-    user:user.value,
-    pass:pass.value
-  })
- })
- if(r.ok){
-   alert("OK")
- }else{
-   alert("FAIL")
- }
-}
-</script>
-
+  function startTunnel(){
+    document.getElementById('status').innerHTML = "🌐 Iniciando túnel... Aguarde...";
+    fetch('/start-tunnel', {method:'POST'});
+    setTimeout(() => {
+      window.open('https://your-tunnel.trycloudflare.com', '_blank');
+    }, 1500);
+  }
+  </script>
 </body>
 </html>
 EOF
 
 # =========================
-# PM2 START
+# PM2 + SERVICES
 # =========================
-echo "⚡ Iniciando serviços..."
-loading
 pm2 start server.js --name cltech
 pm2 save
 
-# =========================
-# CLOUDFLARE SCRIPT
-# =========================
-echo "🌐 Configurando Cloudflare loop..."
-loading
-cat << 'EOF' > $BASE_DIR/cloudflare.sh
+cat << 'EOF' > cloudflare.sh
 #!/bin/bash
+cd /opt/cltech
 while true; do
-  cloudflared tunnel --url http://localhost:3000 >> logs/cf.log 2>&1
-  sleep 5
+  echo "[$(date)] Iniciando Cloudflare Tunnel..." >> logs/cf.log
+  cloudflared tunnel --url http://localhost:3000 --no-tls-verify >> logs/cf.log 2>&1
+  sleep 8
 done
 EOF
 
-chmod +x $BASE_DIR/cloudflare.sh
+chmod +x cloudflare.sh
 
-# =========================
-# SYSTEMD SERVICE
-# =========================
-echo "⚙️ Configurando auto start..."
-loading
+# Systemd
 cat << EOF > /etc/systemd/system/cltech.service
 [Unit]
-Description=CL TECH SERVER
+Description=CL TECH OS - Server + Tunnel
 After=network.target
 
 [Service]
+User=root
+WorkingDirectory=$BASE_DIR
 ExecStart=/usr/bin/pm2 resurrect
 Restart=always
-User=root
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
@@ -231,21 +241,15 @@ EOF
 
 systemctl daemon-reload
 systemctl enable cltech
+systemctl start cltech
 
 # =========================
 # FINAL
 # =========================
 clear
-echo "🔥 INSTALAÇÃO FINALIZADA COM SUCESSO"
+echo -e "\e[95m✅ INSTALAÇÃO CONCLUÍDA COM SUCESSO!\e[0m"
 echo ""
-echo "🚀 Sistema pronto!"
+echo -e "\e[96m🌐 Acesse o Gerenciador: http://localhost:3000\e[0m"
+echo -e "\e[96m🚀 Iniciar túnel: bash /opt/cltech/cloudflare.sh\e[0m"
 echo ""
-echo "▶ iniciar manual:"
-echo "pm2 start server.js"
-echo ""
-echo "▶ logs:"
-echo "pm2 logs"
-echo ""
-echo "▶ cloudflare:"
-echo "bash $BASE_DIR/cloudflare.sh"
-echo ""
+echo -e "\e[95m💖 Aproveite o sistema...\e[0m"
