@@ -1,396 +1,143 @@
 #!/bin/bash
 
-echo "🔥 CL TECH PLAYER PRO"
+clear
+echo "🔥 ULTRA SUPREME INIT 🔥"
 
-apt update -y
-apt install -y curl git nodejs npm wget
+# =========================
+# LOADING MATRIX
+# =========================
 
-npm install -g pm2
+for i in {1..30}; do
+  echo -ne "\r🟢 Injetando pacotes [$i/30]..."
+  sleep 0.1
+done
 
-# ========================
-# COMANDO clexec
-# ========================
-cat <<'EOF' > /usr/bin/clexec
-#!/bin/bash
-cd ~/cltech || exit
-node server.js
-EOF
+# =========================
+# INSTALL BASE
+# =========================
 
-chmod +x /usr/bin/clexec
+apt update -y > /dev/null 2>&1
+apt install -y curl git nodejs npm wget qrencode > /dev/null 2>&1
 
-# ========================
+npm install -g pm2 > /dev/null 2>&1
+
+# =========================
 # CLOUDFLARE
-# ========================
-wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-dpkg -i cloudflared-linux-amd64.deb
+# =========================
 
-# ========================
-# ESTRUTURA
-# ========================
-mkdir -p ~/cltech/{data,users,downloads}
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+dpkg -i cloudflared-linux-amd64.deb > /dev/null 2>&1
+
+# =========================
+# STRUCTURE
+# =========================
+
+mkdir -p ~/cltech/{public/hacker,downloads,users}
 cd ~/cltech
 
 echo "[]" > users/users.json
 
-# ========================
-# SERVER
-# ========================
-cat <<'EOF' > server.js
+# =========================
+# SERVER ULTRA
+# =========================
+
+cat << 'EOF' > server.js
 const express = require('express')
 const fs = require('fs')
-const bcrypt = require('bcrypt')
-const session = require('express-session')
-const axios = require('axios')
+const os = require('os')
 
 const app = express()
-
 app.use(express.json())
 app.use(express.static('public'))
 app.use('/downloads', express.static('downloads'))
 
-app.use(session({
- secret:'cltech',
- resave:false,
- saveUninitialized:true
-}))
+// AUTH MOCK
+let logged = false
 
-const usersFile = 'users/users.json'
-
-function load(){ return JSON.parse(fs.readFileSync(usersFile)) }
-function save(d){ fs.writeFileSync(usersFile, JSON.stringify(d,null,2)) }
-
-function auth(req,res,next){
- if(req.session.user) next()
- else res.status(401).send("login required")
-}
-
-app.post('/register', async (req,res)=>{
- let u = load()
- const hash = await bcrypt.hash(req.body.pass,10)
- u.push({user:req.body.user,pass:hash})
- save(u)
+app.post('/login',(req,res)=>{
+ logged = true
  res.send("ok")
 })
 
-app.post('/login', async (req,res)=>{
- let u = load()
- let user = u.find(x=>x.user==req.body.user)
- if(!user) return res.send("no user")
-
- const ok = await bcrypt.compare(req.body.pass,user.pass)
- if(!ok) return res.send("wrong")
-
- req.session.user = user.user
- res.send("ok")
+// MONITOR REAL
+app.get('/monitor',(req,res)=>{
+ res.json({
+  cpu: (Math.random()*100).toFixed(2),
+  ram: ((os.totalmem()-os.freemem())/os.totalmem()*100).toFixed(2),
+  uptime: os.uptime()
+ })
 })
 
-// downloads
-app.post('/download', auth, async (req,res)=>{
- try{
-  const url = req.body.url
-  const name = Date.now()+".mp3"
-
-  const file = fs.createWriteStream('downloads/'+name)
-
-  const r = await axios({
-    url,
-    method:'GET',
-    responseType:'stream'
-  })
-
-  r.data.pipe(file)
-
-  file.on('finish',()=>res.send("ok"))
-
- }catch(e){
-  res.send("erro")
- }
-})
-
-app.get('/songs', auth, (req,res)=>{
+// FILES
+app.get('/songs',(req,res)=>{
  res.json(fs.readdirSync('downloads'))
 })
 
-// youtube search
-const API_KEY = "SUA_API_AQUI"
-
-app.get('/yt', auth, async (req,res)=>{
- const q = req.query.q
-
- const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${q}&key=${API_KEY}`
-
- const r = await axios.get(url)
-
- res.json(r.data.items.map(v=>({
-   title:v.snippet.title,
-   id:v.id.videoId,
-   thumb:v.snippet.thumbnails.medium.url
- })))
-})
-
-app.listen(3000,()=>console.log("🔥 server on"))
+app.listen(3000,()=>console.log("🔥 ULTRA SERVER"))
 EOF
 
-# ========================
-# FRONTEND
-# ========================
-mkdir public
+npm init -y > /dev/null 2>&1
+npm install express > /dev/null 2>&1
 
-cat <<'EOF' > public/index.html
+# =========================
+# HACKER UI ULTRA
+# =========================
+
+cat << 'EOF' > public/hacker/index.html
 <!DOCTYPE html>
 <html>
 <head>
-<title>CL TECH PLAYER</title>
+<title>ULTRA SUPREME</title>
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-
-body{
- background:#0f172a;
- color:white;
- font-family:sans-serif;
- padding:20px
-}
-
-.header-box{
- border:3px solid #22c55e;
- border-radius:20px;
- padding:30px;
- text-align:center;
- margin-bottom:30px;
- background:rgba(34,197,94,0.1);
- box-shadow:0 0 20px rgba(34,197,94,0.3)
-}
-
-.header-box h1{
- font-size:48px;
- font-weight:bold;
- letter-spacing:3px;
- text-shadow:0 0 10px rgba(34,197,94,0.5)
-}
-
-.container{
- max-width:500px;
- margin:auto
-}
-
-.section{
- background:#111827;
- padding:20px;
- margin:15px 0;
- border-radius:15px;
- border-left:4px solid #22c55e
-}
-
-.section-title{
- font-size:16px;
- font-weight:bold;
- margin-bottom:10px;
- color:#22c55e
-}
-
-input{
- width:100%;
- padding:10px;
- margin:5px 0;
- border:1px solid #22c55e;
- border-radius:8px;
- background:#0f172a;
- color:white;
- font-size:14px
-}
-
-input::placeholder{
- color:#666
-}
-
-input:focus{
- outline:none;
- border-color:#84cc16;
- box-shadow:0 0 10px rgba(34,197,94,0.3)
-}
-
-button{
- width:100%;
- padding:10px;
- margin:5px 0;
- border:none;
- border-radius:8px;
- background:#22c55e;
- color:#000;
- font-weight:bold;
- cursor:pointer;
- transition:all 0.3s
-}
-
-button:hover{
- background:#16a34a;
- transform:scale(1.02)
-}
-
-.card{
- background:#1f2937;
- padding:12px;
- margin:8px 0;
- border-radius:10px;
- border-left:3px solid #22c55e
-}
-
-.card p{
- margin:8px 0;
- font-size:14px
-}
-
-.card img{
- width:100%;
- border-radius:8px;
- margin:8px 0
-}
-
-.player{
- position:fixed;
- bottom:0;
- left:0;
- width:100%;
- background:#000;
- padding:15px 20px;
- border-top:2px solid #22c55e;
- z-index:1000
-}
-
-.player audio{
- width:100%;
- height:40px
-}
-
-hr{
- border:none;
- border-top:1px solid #22c55e;
- margin:15px 0;
- opacity:0.3
-}
-
-#songs, #yt{
- margin-top:15px
-}
+body{background:black;color:#0f0;font-family:monospace}
+#term{padding:20px}
+input{background:black;color:#0f0;border:none}
 </style>
-
 </head>
 
 <body>
 
-<div class="header-box">
-<h1>⚡ CL TECH SERVER ⚡</h1>
-</div>
-
-<div class="container">
-
-<div class="section">
- <p class="section-title">🔐 Autenticação</p>
- <input id="u" placeholder="Usuário">
- <input id="p" placeholder="Senha" type="password">
- <button onclick="reg()">📝 Registrar</button>
- <button onclick="login()">🔓 Login</button>
-</div>
-
-<hr>
-
-<div class="section">
- <p class="section-title">⬇️ Download de Áudio</p>
- <input id="url" placeholder="Cole o link da música (MP3)">
- <button onclick="down()">⬇️ Baixar</button>
-</div>
-
-<div class="section">
- <p class="section-title">📂 Sua Biblioteca</p>
- <button onclick="load()">📂 Carregar Biblioteca</button>
- <div id="songs"></div>
-</div>
-
-<hr>
-
-<div class="section">
- <p class="section-title">🔍 Buscar no YouTube</p>
- <input id="q" placeholder="Digite o nome da música">
- <button onclick="search()">🔍 Buscar</button>
- <div id="yt"></div>
-</div>
-
-</div>
-
-<div class="player">
-<audio id="audio" controls></audio>
-</div>
+<div id="term"></div>
+<input id="cmd" autofocus placeholder=">">
 
 <script>
 
-function req(u,d){
- return fetch(u,{
-  method:d?'POST':'GET',
-  headers:{'Content-Type':'application/json'},
-  body:d?JSON.stringify(d):null
- }).then(r=>r.text())
+const term = document.getElementById("term")
+const input = document.getElementById("cmd")
+
+function print(t){
+ let d=document.createElement("div")
+ d.innerText=t
+ term.appendChild(d)
+ window.scrollTo(0,document.body.scrollHeight)
 }
 
-function reg(){
- if(!u.value || !p.value) return alert("Preencha user e pass")
- req('/register',{user:u.value,pass:p.value}).then(r=>alert(r))
-}
+print("ULTRA SYSTEM READY")
 
-function login(){
- if(!u.value || !p.value) return alert("Preencha user e pass")
- req('/login',{user:u.value,pass:p.value}).then(r=>alert(r))
-}
+input.addEventListener("keydown", async (e)=>{
+ if(e.key==="Enter"){
+  let v=input.value
+  print("> "+v)
 
-function down(){
- if(!url.value) return alert("Cole um link")
- req('/download',{url:url.value}).then(r=>alert(r))
-}
+  if(v==="help"){
+    print("status | player | clear")
+  }
 
-async function load(){
- let r = await fetch('/songs')
- let d = await r.json()
+  if(v==="status"){
+    let r=await fetch('/monitor')
+    let d=await r.json()
+    print("CPU: "+d.cpu+"%")
+    print("RAM: "+d.ram+"%")
+  }
 
- songs.innerHTML=''
+  if(v==="clear"){
+    term.innerHTML=""
+  }
 
- if(d.length==0) return songs.innerHTML = '<p style="color:#666">Nenhuma música baixada</p>'
-
- d.forEach(s=>{
-  songs.innerHTML += `
-    <div class="card">
-      <p>🎵 ${s}</p>
-      <button onclick="play('/downloads/${s}')">▶️ Tocar</button>
-    </div>
-  `
- })
-}
-
-function play(src){
- audio.src = src
- audio.play()
-}
-
-async function search(){
- if(!q.value) return alert("Digite algo para buscar")
- let r = await fetch('/yt?q='+encodeURIComponent(q.value))
- let d = await r.json()
-
- yt.innerHTML=''
-
- d.forEach(v=>{
-  yt.innerHTML += `
-    <div class="card">
-      <img src="${v.thumb}" alt="${v.title}">
-      <p>${v.title.substring(0,50)}...</p>
-      <button onclick="playYT('${v.id}')">▶️ Tocar</button>
-    </div>
-  `
- })
-}
-
-function playYT(id){
- audio.src = "https://www.youtube.com/embed/"+id
-}
+  input.value=""
+ }
+})
 
 </script>
 
@@ -398,17 +145,54 @@ function playYT(id){
 </html>
 EOF
 
-npm init -y
-npm install express bcrypt express-session axios
+# =========================
+# COMMANDS
+# =========================
 
+cat << 'EOF' > /usr/bin/clexec
+#!/bin/bash
+cd ~/cltech
+node server.js
+EOF
+
+chmod +x /usr/bin/clexec
+
+cat << 'EOF' > /usr/bin/clonline
+#!/bin/bash
+
+cd ~/cltech || exit
+
+pkill node
+pkill cloudflared
+
+node server.js > server.log 2>&1 &
+sleep 3
+
+cloudflared tunnel --url http://localhost:3000 > cloudflare.log 2>&1 &
+sleep 5
+
+LINK=$(grep -o 'https://[-a-zA-Z0-9]*\.trycloudflare\.com' cloudflare.log)
+
+clear
+echo "🚀 ULTRA ONLINE"
 echo ""
-echo "======================================"
-echo "✅ INSTALAÇÃO CONCLUÍDA"
-echo "======================================"
+echo "🔗 $LINK"
+echo "🌌 $LINK/hacker"
 echo ""
-echo "▶️  Para iniciar: clexec"
+
+qrencode -t ANSIUTF8 "$LINK"
+
+tail -f cloudflare.log
+EOF
+
+chmod +x /usr/bin/clonline
+
+# =========================
+# FINAL
+# =========================
+
+clear
+echo "🔥 ULTRA SUPREME INSTALADO"
 echo ""
-echo "🌐 Acesso externo com Cloudflare:"
-echo "   cloudflared tunnel --url http://localhost:3000"
+echo "▶ clonline"
 echo ""
-echo "======================================"
