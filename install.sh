@@ -1,179 +1,357 @@
 #!/bin/bash
-# ================================================
-# CL TECH OS - Instalador v4.3 MATRIX + CLOUDFLARE
-# Systemd Service para Cloudflare Tunnel
-# ================================================
 
 set -e
 
-echo "🔥 Iniciando instalação do CL TECH OS v4.3 MATRIX + CLOUDFLARE..."
+echo "🔥 CL TECH OS INSTALLER"
 
-if [[ $EUID -ne 0 ]]; then
-   echo "❌ Execute como root (sudo)"
-   exit 1
+# =========================
+# ROOT CHECK
+# =========================
+if [ "$EUID" -ne 0 ]; then
+  echo "Execute como root: sudo bash install.sh"
+  exit 1
 fi
 
-apt-get update -qq
-apt-get install -y curl wget git ffmpeg mpv yt-dlp whiptail build-essential
+# =========================
+# UPDATE SYSTEM
+# =========================
+apt update -y && apt upgrade -y
 
-# Node.js + PM2
-if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-    apt-get install -y nodejs
-fi
-npm install -g pm2 --silent
+# =========================
+# DEPENDENCIES
+# =========================
+apt install -y curl wget git jq build-essential python3
 
-# Cloudflared
-echo "📦 Instalando Cloudflared..."
-if ! command -v cloudflared &> /dev/null; then
-    wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    dpkg -i cloudflared-linux-amd64.deb || apt-get install -f -y
-    rm -f cloudflared-linux-amd64.deb
-fi
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs
 
-mkdir -p /opt/cltech/{public,users,logs,downloads,monitor,backgrounds}
-cd /opt/cltech
+npm install -g pm2
 
-# ==================== CONFIG ====================
-cat > config.json << EOF
+# =========================
+# CLOUDFLARED
+# =========================
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -O cf.deb
+dpkg -i cf.deb || apt -f install -y
+rm cf.deb
+
+# =========================
+# STRUCTURE
+# =========================
+BASE=/opt/cltech
+mkdir -p $BASE/{music,logs,users,system,public}
+cd $BASE
+
+echo "[]" > users/users.json
+
+# =========================
+# PACKAGE JSON
+# =========================
+cat > package.json <<EOF
 {
-  "port": 3000,
-  "pixKey": "566.019.878.32",
-  "pixName": "Pedro Inácio dos Santos de Menezes",
-  "adminUser": "admin",
-  "adminPass": "admin2026"
+  "name": "cltech",
+  "version": "1.0.0",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.17.0",
+    "bcrypt": "^5.1.1",
+    "ytsr": "^3.8.4",
+    "cors": "^2.8.5"
+  }
 }
 EOF
 
-# ==================== CLOUDFLARE SYSTEMD SERVICE ====================
-cat > /etc/systemd/system/cloudflare.service << EOF
+npm install
+
+# =========================
+# SERVER (BACKEND)
+# =========================
+cat > server.js <<'EOF'
+const express = require("express");
+const fs = require("fs");
+const os = require("os");
+const bcrypt = require("bcrypt");
+const cors = require("cors");
+const ytsr = require("ytsr");
+const { WebSocketServer } = require("ws");
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static("public"));
+
+const USERS_FILE = "./users/users.json";
+
+function loadUsers() {
+  try { return JSON.parse(fs.readFileSync(USERS_FILE)); }
+  catch { return []; }
+}
+function saveUsers(u) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(u, null, 2));
+}
+
+// =========================
+// MONITOR ÚNICO
+// =========================
+function getSystemStatus() {
+  const cpus = os.loadavg()[0];
+  const mem = {
+    total: os.totalmem(),
+    free: os.freemem()
+  };
+
+  return {
+    cpu: cpus,
+    ram: ((mem.free / mem.total) * 100).toFixed(2),
+    uptime: os.uptime(),
+    platform: os.platform()
+  };
+}
+
+// =========================
+// DEFAULT USER
+// =========================
+(async () => {
+  let users = loadUsers();
+  if (!users.find(u => u.user === "clzin")) {
+    users.push({
+      user: "clzin",
+      pass: await bcrypt.hash("clzin", 10)
+    });
+    saveUsers(users);
+  }
+})();
+
+// =========================
+// AUTH
+// =========================
+app.post("/login", async (req,res)=>{
+  const {user,pass}=req.body;
+  let users=loadUsers();
+  let u=users.find(x=>x.user===user);
+  if(!u) return res.status(401).send({ok:false});
+  if(!await bcrypt.compare(pass,u.pass)) return res.status(401).send({ok:false});
+  res.send({ok:true});
+});
+
+app.post("/register", async (req,res)=>{
+  let users=loadUsers();
+  users.push({user:req.body.user, pass:await bcrypt.hash(req.body.pass,10)});
+  saveUsers(users);
+  res.send({ok:true});
+});
+
+// =========================
+// MUSIC SEARCH
+// =========================
+app.get("/search-music", async (req,res)=>{
+  const r = await ytsr(req.query.q || "", {limit:5});
+  res.json(r.items.filter(i=>i.type==="video"));
+});
+
+// =========================
+// LOCAL MUSIC
+// =========================
+app.get("/music/local",(req,res)=>{
+  const files = fs.readdirSync("./music");
+  res.json(files);
+});
+
+// =========================
+// STATUS (MESMO DO clmonit)
+// =========================
+app.get("/status",(req,res)=>{
+  res.json(getSystemStatus());
+});
+
+// =========================
+// WS CHAT
+// =========================
+const server = app.listen(3000);
+const wss = new WebSocketServer({ server });
+
+let clients = [];
+
+wss.on("connection",(ws)=>{
+  clients.push(ws);
+
+  ws.on("message",(msg)=>{
+    clients.forEach(c=>{
+      if(c.readyState===1) c.send(msg.toString());
+    });
+  });
+});
+
+console.log("CL TECH OS ONLINE");
+EOF
+
+# =========================
+# FRONTEND
+# =========================
+cat > public/index.html <<'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="manifest" href="/manifest.json">
+<style>
+body{background:#000;color:#ff69b4;font-family:monospace}
+#app{display:flex}
+#chat{width:40%;border-right:1px solid #333}
+#music{width:60%;padding:10px}
+</style>
+</head>
+<body>
+
+<div id="login">
+<input id="u" placeholder="user">
+<input id="p" type="password">
+<button onclick="login()">LOGIN</button>
+</div>
+
+<div id="app" style="display:none">
+<div id="chat">
+<h3>CHAT</h3>
+<div id="msgs"></div>
+<input id="msg"><button onclick="send()">Send</button>
+</div>
+
+<div id="music">
+<h3>MUSIC</h3>
+<input id="q"><button onclick="search()">Buscar</button>
+<div id="list"></div>
+<iframe id="player" width="300" height="200"></iframe>
+
+<h3>STATUS</h3>
+<pre id="status"></pre>
+</div>
+</div>
+
+<script>
+let ws;
+
+async function login(){
+let r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:u.value,pass:p.value})});
+let d=await r.json();
+if(d.ok){
+document.getElementById("login").style.display="none";
+document.getElementById("app").style.display="flex";
+startWS();
+loadStatus();
+}
+}
+
+function startWS(){
+ws=new WebSocket("ws://"+location.host);
+ws.onmessage=e=>{
+let div=document.getElementById("msgs");
+div.innerHTML+="<p>"+e.data+"</p>";
+}
+}
+
+function send(){
+ws.send(msg.value);
+}
+
+async function search(){
+let r=await fetch("/search-music?q="+q.value);
+let d=await r.json();
+list.innerHTML="";
+d.forEach(v=>{
+let div=document.createElement("div");
+div.innerHTML=v.title;
+div.onclick=()=>{
+player.src="https://www.youtube.com/embed/"+v.id.videoId;
+};
+list.appendChild(div);
+});
+}
+
+async function loadStatus(){
+let r=await fetch("/status");
+status.innerText=JSON.stringify(await r.json(),null,2);
+setTimeout(loadStatus,3000);
+}
+</script>
+
+</body>
+</html>
+EOF
+
+# =========================
+# PWA
+# =========================
+cat > public/manifest.json <<EOF
+{
+"name":"CL TECH OS",
+"short_name":"CLTECH",
+"start_url":"/",
+"display":"standalone",
+"background_color":"#000",
+"theme_color":"#ff69b4"
+}
+EOF
+
+cat > public/service-worker.js <<EOF
+self.addEventListener("fetch",e=>{});
+EOF
+
+# =========================
+# CLOUDFLARE
+# =========================
+cat > cloudflare.sh <<EOF
+#!/bin/bash
+while true; do
+cloudflared tunnel --url http://localhost:3000
+sleep 3
+done
+EOF
+
+chmod +x cloudflare.sh
+
+# =========================
+# CLMONIT
+# =========================
+cat > /usr/local/bin/clmonit <<'EOF'
+#!/bin/bash
+echo "🔥 CL TECH MONITOR"
+curl -s http://localhost:3000/status | jq
+pm2 status
+EOF
+
+chmod +x /usr/local/bin/clmonit
+
+# =========================
+# PM2
+# =========================
+pm2 start server.js --name cltech
+pm2 save
+
+# =========================
+# SYSTEMD
+# =========================
+cat > /etc/systemd/system/cltech.service <<EOF
 [Unit]
-Description=Cloudflare Tunnel for CL TECH OS
-After=network-online.target
-Wants=network-online.target
+Description=CL TECH OS
+After=network.target
 
 [Service]
-Type=simple
-User=root
 WorkingDirectory=/opt/cltech
-ExecStart=/usr/local/bin/cloudflared tunnel --url http://localhost:3000
+ExecStart=/usr/bin/pm2 resurrect
 Restart=always
-RestartSec=5
-StandardOutput=append:/opt/cltech/logs/cf.log
-StandardError=append:/opt/cltech/logs/cf.log
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# ==================== FRONTEND MATRIX (simplificado) ====================
-cat > public/index.html << 'EOF'
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CL TECH OS v4.3</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <canvas id="matrixRain"></canvas>
-  <div class="container">
-    <div id="loginScreen" class="screen active">
-      <h1 class="glitch">CL TECH OS</h1>
-      <input type="text" id="loginUser" placeholder="USERNAME" class="matrix-input">
-      <input type="password" id="loginPass" placeholder="PASSWORD" class="matrix-input">
-      <button onclick="login()" class="matrix-btn">ACCESS SYSTEM</button>
-    </div>
-  </div>
-  <script src="app.js"></script>
-</body>
-</html>
-EOF
-
-cat > public/style.css << 'EOF'
-body { background:#000; color:#00ff41; font-family:'VT323',monospace; margin:0; overflow:hidden; }
-#matrixRain { position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; opacity:0.3; }
-.glitch { animation: glitch 1s infinite; }
-.matrix-input, .matrix-btn { background:transparent; border:2px solid #00ff41; color:#00ff41; padding:12px; width:100%; margin:8px 0; font-size:1.3rem; }
-.matrix-btn:hover { background:#00ff41; color:#000; }
-EOF
-
-cat > public/app.js << 'EOF'
-const canvas = document.getElementById('matrixRain');
-const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-const chars = "01アイウエオ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const fontSize = 14;
-const columns = canvas.width / fontSize;
-const drops = Array(Math.floor(columns)).fill(1);
-
-function draw() {
-  ctx.fillStyle = 'rgba(0,0,0,0.05)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#00ff41';
-  ctx.font = fontSize + 'px monospace';
-  for (let i = 0; i < drops.length; i++) {
-    ctx.fillText(chars[Math.floor(Math.random()*chars.length)], i*fontSize, drops[i]*fontSize);
-    if (drops[i]*fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
-    drops[i]++;
-  }
-}
-setInterval(draw, 35);
-EOF
-
-# ==================== BACKEND ====================
-cat > server.js << 'EOF'
-const express = require('express');
-const app = express();
-const PORT = 3000;
-
-app.use(express.static('public'));
-app.listen(PORT, () => console.log(`🚀 CL TECH OS MATRIX v4.3 rodando em http://localhost:${PORT}`));
-EOF
-
-npm init -y --silent
-npm install express --silent
-
-# ==================== MONITOR TERMINAL ====================
-cat > monitor.sh << 'MONITOR'
-#!/bin/bash
-while true; do
-  CHOICE=$(whiptail --title "CL TECH OS MATRIX" --menu "Menu Principal:" 20 75 10 \
-    "1" "Reproduzir Música no Terminal" \
-    "2" "Status do Sistema" \
-    "3" "Logs Cloudflare" \
-    "4" "Reiniciar Serviços" \
-    "5" "Sair" 3>&1 1>&2 2>&3)
-  case $CHOICE in
-    1) read -p "🎵 Música: " m; mpv --no-video "$(yt-dlp -g "ytsearch1:$m")" ;;
-    2) uptime && free -h ;;
-    3) tail -n 30 logs/cf.log 2>/dev/null || echo "Sem logs" ;;
-    4) systemctl restart cltech cloudflare ;;
-    5) exit ;;
-  esac
-done
-MONITOR
-
-chmod +x monitor.sh
-echo 'alias cltech="cd /opt/cltech && ./monitor.sh"' >> /root/.bashrc
-
-# ==================== INICIALIZAÇÃO ====================
-pm2 start server.js --name cltech
-pm2 save
-
 systemctl daemon-reload
-systemctl enable --now cltech.service
-systemctl enable --now cloudflare.service
+systemctl enable cltech
+systemctl start cltech
 
-echo ""
-echo "══════════════════════════════════════════════════════════════"
-echo "✅ CL TECH OS v4.3 MATRIX + CLOUDFLARE INSTALADO!"
-echo "══════════════════════════════════════════════════════════════"
-echo "✅ Cloudflare Tunnel configurado como serviço systemd"
-echo ""
-echo "Comandos úteis:"
-echo "   cltech                    → Abrir monitor"
-echo "   systemctl status cloudflare → Ver status do túnel"
-echo "   source /root/.bashrc"
-echo "══════════════════════════════════════════════════════════════"
+# =========================
+# FINAL
+# =========================
+echo "🔥 CL TECH OS INSTALADO"
+echo "http://localhost:3000"
+echo "clmonit disponível"
+echo "Cloudflare: execute bash cloudflare.sh"
