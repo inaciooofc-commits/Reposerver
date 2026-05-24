@@ -1,143 +1,199 @@
 #!/bin/bash
 
 clear
-echo "🔥 ULTRA SUPREME INIT 🔥"
+echo "🔥 CL TECH OS ULTRA REFINED 🔥"
 
 # =========================
-# LOADING MATRIX
+# LOADING
 # =========================
-
-for i in {1..30}; do
-  echo -ne "\r🟢 Injetando pacotes [$i/30]..."
-  sleep 0.1
+for i in {1..50}; do
+ echo -ne "\r🟢 Inicializando [$i/50]..."
+ sleep 0.05
 done
 
 # =========================
-# INSTALL BASE
+# BASE
 # =========================
-
 apt update -y > /dev/null 2>&1
-apt install -y curl git nodejs npm wget qrencode > /dev/null 2>&1
+apt install -y openbox xinit chromium unclutter nodejs npm git wget curl qrencode > /dev/null 2>&1
 
 npm install -g pm2 > /dev/null 2>&1
 
 # =========================
 # CLOUDFLARE
 # =========================
-
 wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
 dpkg -i cloudflared-linux-amd64.deb > /dev/null 2>&1
 
 # =========================
 # STRUCTURE
 # =========================
-
-mkdir -p ~/cltech/{public/hacker,downloads,users}
-cd ~/cltech
+mkdir -p /opt/cltech/{public,users,data,downloads,logs}
+cd /opt/cltech
 
 echo "[]" > users/users.json
 
 # =========================
-# SERVER ULTRA
+# SERVER
 # =========================
-
 cat << 'EOF' > server.js
 const express = require('express')
 const fs = require('fs')
 const os = require('os')
+const { exec } = require('child_process')
 
 const app = express()
 app.use(express.json())
 app.use(express.static('public'))
-app.use('/downloads', express.static('downloads'))
 
-// AUTH MOCK
-let logged = false
+// USERS
+const USERS_FILE = 'users/users.json'
+let users = JSON.parse(fs.readFileSync(USERS_FILE))
 
+// SESSION (simples)
+let session = {}
+
+// LOGIN
 app.post('/login',(req,res)=>{
- logged = true
- res.send("ok")
+ const {user,pass} = req.body
+ const found = users.find(u=>u.user===user && u.pass===pass)
+ if(found){
+   session.logged = true
+   return res.send({ok:true})
+ }
+ res.status(401).send({ok:false})
 })
 
-// MONITOR REAL
+// REGISTER
+app.post('/register',(req,res)=>{
+ const {user,pass} = req.body
+ users.push({user,pass})
+ fs.writeFileSync(USERS_FILE, JSON.stringify(users,null,2))
+ res.send({ok:true})
+})
+
+// AUTH
+app.use((req,res,next)=>{
+ if(req.path === '/' || req.path === '/login' || req.path === '/register') return next()
+ if(!session.logged) return res.redirect('/')
+ next()
+})
+
+// MONITOR
 app.get('/monitor',(req,res)=>{
  res.json({
-  cpu: (Math.random()*100).toFixed(2),
-  ram: ((os.totalmem()-os.freemem())/os.totalmem()*100).toFixed(2),
+  cpu:(Math.random()*100).toFixed(2),
+  ram:((os.totalmem()-os.freemem())/os.totalmem()*100).toFixed(2),
   uptime: os.uptime()
  })
 })
 
 // FILES
-app.get('/songs',(req,res)=>{
- res.json(fs.readdirSync('downloads'))
+app.get('/files',(req,res)=>{
+ res.json(fs.readdirSync('data'))
 })
 
-app.listen(3000,()=>console.log("🔥 ULTRA SERVER"))
+app.post('/delete',(req,res)=>{
+ fs.unlinkSync('data/'+req.body.name)
+ res.send("ok")
+})
+
+// TERMINAL
+app.post('/cmd',(req,res)=>{
+ exec(req.body.cmd,(e,out)=>res.send(out))
+})
+
+// ROOT
+app.get('/',(req,res)=>res.sendFile(__dirname+'/public/login.html'))
+app.get('/app',(req,res)=>res.sendFile(__dirname+'/public/app.html'))
+
+app.listen(3000,()=>console.log("🔥 CL TECH OS RUNNING"))
 EOF
 
 npm init -y > /dev/null 2>&1
 npm install express > /dev/null 2>&1
 
 # =========================
-# HACKER UI ULTRA
+# LOGIN UI
 # =========================
-
-cat << 'EOF' > public/hacker/index.html
+cat << 'EOF' > public/login.html
 <!DOCTYPE html>
 <html>
-<head>
-<title>ULTRA SUPREME</title>
+<body style="background:black;color:#0f0;font-family:monospace;text-align:center;padding-top:100px">
 
-<style>
-body{background:black;color:#0f0;font-family:monospace}
-#term{padding:20px}
-input{background:black;color:#0f0;border:none}
-</style>
-</head>
+<h1>CL TECH OS</h1>
 
-<body>
+<input id="user" placeholder="user"><br><br>
+<input id="pass" type="password" placeholder="pass"><br><br>
 
-<div id="term"></div>
-<input id="cmd" autofocus placeholder=">">
+<button onclick="login()">LOGIN</button>
+<button onclick="register()">REGISTER</button>
+
+<script>
+async function login(){
+ let user=document.getElementById('user').value
+ let pass=document.getElementById('pass').value
+
+ let r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user,pass})})
+ if(r.ok) location='/app'
+ else alert("ERRO")
+}
+
+async function register(){
+ let user=document.getElementById('user').value
+ let pass=document.getElementById('pass').value
+
+ await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user,pass})})
+ alert("CRIADO")
+}
+</script>
+
+</body>
+</html>
+EOF
+
+# =========================
+# APP UI
+# =========================
+cat << 'EOF' > public/app.html
+<!DOCTYPE html>
+<html>
+<body style="background:black;color:#0f0;font-family:monospace">
+
+<h2>🟢 CL TECH OS</h2>
+
+<div id="status"></div>
+
+<h3>📁 Arquivos</h3>
+<div id="files"></div>
+
+<h3>💻 Terminal</h3>
+<input id="cmd">
+<button onclick="run()">Run</button>
+<pre id="out"></pre>
 
 <script>
 
-const term = document.getElementById("term")
-const input = document.getElementById("cmd")
-
-function print(t){
- let d=document.createElement("div")
- d.innerText=t
- term.appendChild(d)
- window.scrollTo(0,document.body.scrollHeight)
+async function load(){
+ let r=await fetch('/monitor')
+ let d=await r.json()
+ status.innerHTML="CPU:"+d.cpu+"% RAM:"+d.ram+"%"
 }
 
-print("ULTRA SYSTEM READY")
+async function files(){
+ let r=await fetch('/files')
+ let d=await r.json()
+ files.innerHTML=d.join("<br>")
+}
 
-input.addEventListener("keydown", async (e)=>{
- if(e.key==="Enter"){
-  let v=input.value
-  print("> "+v)
+async function run(){
+ let c=document.getElementById('cmd').value
+ let r=await fetch('/cmd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cmd:c})})
+ out.innerText=await r.text()
+}
 
-  if(v==="help"){
-    print("status | player | clear")
-  }
-
-  if(v==="status"){
-    let r=await fetch('/monitor')
-    let d=await r.json()
-    print("CPU: "+d.cpu+"%")
-    print("RAM: "+d.ram+"%")
-  }
-
-  if(v==="clear"){
-    term.innerHTML=""
-  }
-
-  input.value=""
- }
-})
+setInterval(load,2000)
+setInterval(files,3000)
 
 </script>
 
@@ -146,53 +202,58 @@ input.addEventListener("keydown", async (e)=>{
 EOF
 
 # =========================
-# COMMANDS
+# COMANDOS
 # =========================
-
-cat << 'EOF' > /usr/bin/clexec
-#!/bin/bash
-cd ~/cltech
-node server.js
-EOF
-
-chmod +x /usr/bin/clexec
-
 cat << 'EOF' > /usr/bin/clonline
 #!/bin/bash
 
-cd ~/cltech || exit
+cd /opt/cltech
 
 pkill node
 pkill cloudflared
 
-node server.js > server.log 2>&1 &
+node server.js &
 sleep 3
 
-cloudflared tunnel --url http://localhost:3000 > cloudflare.log 2>&1 &
+cloudflared tunnel --url http://localhost:3000 > cf.log 2>&1 &
 sleep 5
 
-LINK=$(grep -o 'https://[-a-zA-Z0-9]*\.trycloudflare\.com' cloudflare.log)
+LINK=$(grep -o 'https://[-a-zA-Z0-9]*\.trycloudflare\.com' cf.log)
 
 clear
-echo "🚀 ULTRA ONLINE"
-echo ""
-echo "🔗 $LINK"
-echo "🌌 $LINK/hacker"
-echo ""
+echo "🚀 ONLINE:"
+echo "$LINK"
 
 qrencode -t ANSIUTF8 "$LINK"
 
-tail -f cloudflare.log
+chromium --kiosk $LINK
 EOF
 
 chmod +x /usr/bin/clonline
 
 # =========================
+# AUTO BOOT
+# =========================
+cat << 'EOF' > ~/.xinitrc
+#!/bin/bash
+unclutter &
+clonline
+EOF
+
+chmod +x ~/.xinitrc
+
+cat << 'EOF' >> ~/.bashrc
+
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+ startx
+fi
+EOF
+
+# =========================
 # FINAL
 # =========================
-
 clear
-echo "🔥 ULTRA SUPREME INSTALADO"
+echo "🔥 INSTALAÇÃO FINALIZADA"
 echo ""
-echo "▶ clonline"
-echo ""
+echo "▶ reinicie:"
+echo "reboot"
