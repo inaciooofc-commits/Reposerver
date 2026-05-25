@@ -462,6 +462,23 @@ if config.get('google_client_id') and config.get('google_client_secret'):
 server_status = load_json(STATUS_FILE, DEFAULT_STATUS)
 queue = server_status.get('queue', [])
 
+# Override sensitive config with environment variables when present (avoid committing secrets in config.json)
+env_yt = os.environ.get('YOUTUBE_API_KEY')
+if env_yt:
+  config['youtube_api_key'] = env_yt
+env_cf_token = os.environ.get('CLOUDFLARE_API_TOKEN')
+if env_cf_token:
+  config['cloudflare_api_token'] = env_cf_token
+env_cf_zone = os.environ.get('CLOUDFLARE_ZONE_ID')
+if env_cf_zone:
+  config['cloudflare_zone_id'] = env_cf_zone
+env_secret = os.environ.get('SECRET_KEY')
+if env_secret:
+  app.secret_key = env_secret
+env_bg = os.environ.get('BACKGROUND_IMAGE')
+if env_bg:
+  config['background_image'] = env_bg
+
 
 def save_status():
     with status_lock:
