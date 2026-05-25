@@ -33,13 +33,28 @@ Ou use o instalador unificado:
 bash /opt/reposerver/install_cloud.sh
 ```
 
+O instalador agora inicia automaticamente o servidor, o bot RPG e o auto-updater.
+Ele também valida a conexão com o bot antes de concluir a instalação.
+
 4. Abra o navegador em:
 
 ```text
 http://<IP_DO_PC>:5000
 ```
 
-5. Login padrão:
+5. Para acesso remoto ou em rede restrita, use o Cloudflare Tunnel:
+
+```bash
+bash /opt/reposerver/cloudflare_tunnel.sh
+```
+
+Se `remote_access_key` estiver definido em `config.json`, acesse com o parâmetro:
+
+```text
+https://<tunnel-url>/?access_key=SEU_TOKEN
+```
+
+6. Login padrão:
 
 - Usuário: `admin`
 - Senha: `admin123`

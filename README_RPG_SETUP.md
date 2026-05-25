@@ -24,11 +24,16 @@ curl -s -X POST http://127.0.0.1:6000/command -H 'Content-Type: application/json
 curl -s http://127.0.0.1:6000/help
 ```
 
-5. Veja a lista completa de comandos do projeto no terminal:
+5. Verifique o status do bot:
+```bash
+curl -s http://127.0.0.1:6000/status
+```
+
+6. Veja a lista completa de comandos do projeto no terminal:
 ```bash
 python3 monitor.py --commands
 ```
-4. Inicie o updater (opcional):
+7. Inicie o updater (opcional):
 ```bash
 python3 updater.py &
 ```
@@ -49,5 +54,6 @@ If your repository is not located at `~/Reposerver`, edit the copied service fil
 On systems without a running systemd instance (such as some containers), service enable/start commands will be skipped by `install_and_run.sh`.
 
 Security and access
-- The bot listens on localhost only. The server (`server.py`) can forward commands to the bot via HTTP POST to `http://127.0.0.1:6000/command` (we can add an endpoint).
-- For remote admin access via Termux, use SSH to your server (recommended). Do NOT expose the bot port publicly.
+- The bot listens on localhost only. The server (`server.py`) can forward commands to the bot via HTTP POST to `http://127.0.0.1:6000/command`.
+- Use `/status` to confirm the bot is online and see recent RPG actions.
+- For remote admin access, use SSH or a reverse tunnel. Do NOT expose the bot port publicly.

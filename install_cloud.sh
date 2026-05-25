@@ -51,7 +51,10 @@ if [ ! -f "config.json" ]; then
   "auto_update_on_start": false,
   "background_image": "",
   "cloudflare_api_token": "",
-  "cloudflare_zone_id": ""
+  "cloudflare_zone_id": "",
+  "cloudflare_tunnel_token": "",
+  "cloudflare_tunnel_name": "reposerver-tunnel",
+  "remote_access_key": ""
 }
 JSON
 fi
@@ -96,6 +99,7 @@ done
 
 chmod +x "$TARGET_DIR/server.py" "$TARGET_DIR/zarco_bot.py" "$TARGET_DIR/updater.py"
 chmod +x "$TARGET_DIR/monitor.sh" "$TARGET_DIR/start.sh"
+chmod +x "$TARGET_DIR/cloudflare_tunnel.sh"
 
 # Start services in background
 cd "$TARGET_DIR"
@@ -127,12 +131,72 @@ function start_background() {
   fi
 }
 
+function wait_for_port() {
+  local port="$1"
+  local tries=18
+  local count=0
+  while [ $count -lt $tries ]; do
+    if curl -s "http://127.0.0.1:$port" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+    count=$((count + 1))
+  done
+  return 1
+}
+
+function verify_bot_auth() {
+  local url="http://127.0.0.1:6000/help"
+  local tries=12
+  local count=0
+  while [ $count -lt $tries ]; do
+    if curl -s "$url" | grep -q 'available_commands'; then
+      echo "✅ Bot RPG autenticado e pronto."
+      return 0
+    fi
+    sleep 1
+    count=$((count + 1))
+  done
+  return 1
+}
+
+function get_config_value() {
+  local key="$1"
+  python3 - <<PY
+import json, os
+path = os.path.join(r"$TARGET_DIR", 'config.json')
+with open(path, encoding='utf-8') as f:
+    cfg = json.load(f)
+print(cfg.get(r"$key", "") or "")
+PY
+}
+
 ensure_port_free 5000
 ensure_port_free 6000
 
 start_background "Servidor Flask" "source '$TARGET_DIR/venv/bin/activate' && '$TARGET_DIR/venv/bin/gunicorn' -w 2 --bind 0.0.0.0:5000 server:app" "${TARGET_DIR}/server.log" "gunicorn.*server:app"
 start_background "ZarcoBOT RPG" "source '$TARGET_DIR/venv/bin/activate' && python3 '$TARGET_DIR/zarco_bot.py'" "${TARGET_DIR}/game.log" "zarco_bot.py"
 start_background "Auto-updater" "source '$TARGET_DIR/venv/bin/activate' && python3 '$TARGET_DIR/updater.py'" "${TARGET_DIR}/updater.log" "updater.py"
+
+if ! wait_for_port 5000; then
+  echo "❌ Falha: servidor Flask não respondeu em http://127.0.0.1:5000" >&2
+  exit 1
+fi
+
+if ! wait_for_port 6000; then
+  echo "❌ Falha: bot RPG não respondeu em http://127.0.0.1:6000" >&2
+  exit 1
+fi
+
+if ! verify_bot_auth; then
+  echo "❌ Falha de autenticação do bot RPG. Verifique seu sistema de bot antes de usar." >&2
+  exit 1
+fi
+
+CLOUDFLARE_TUNNEL_TOKEN="$(get_config_value cloudflare_tunnel_token)"
+if [ -n "$CLOUDFLARE_TUNNEL_TOKEN" ]; then
+  start_background "Cloudflare Tunnel" "CLOUDFLARE_TUNNEL_TOKEN='$CLOUDFLARE_TUNNEL_TOKEN' bash '$TARGET_DIR/cloudflare_tunnel.sh'" "${TARGET_DIR}/cloudflare_tunnel.log" "cloudflare_tunnel.sh"
+fi
 
 PUBLIC_IP="$(curl -s ifconfig.me || true)"
 LOCAL_IP="$(hostname -I | awk '{print $1}' || true)"
@@ -159,6 +223,9 @@ Para ver comandos no monitor:
   ./monitor.sh --commands
 
 Se você estiver atrás de firewall/NAT, abra a porta 5000 ou use um túnel reverso (Cloudflare Tunnel / SSH reverse).
+
+Para expor de forma segura sem abrir porta:
+  ./cloudflare_tunnel.sh
 
 Login padrão do painel:
   admin / admin123
