@@ -1,45 +1,39 @@
 #!/bin/bash
 
 echo "===================================="
-echo "🔥 CL-CONNECT START SYSTEM (antiX)"
+echo "🔥 CL-CONNECT START (SSH KEY MODE)"
 echo "===================================="
 
-# Atualizar sistema básico
-sudo apt update -y
-
 # Instalar SSH
+sudo apt update -y
 sudo apt install openssh-server -y
 
-# Garantir SSH ativo
+# Ativar SSH
 sudo systemctl enable ssh
 sudo systemctl restart ssh
 
-# Garantir login por senha ativo
-SSH_CONFIG="/etc/ssh/sshd_config"
+# Criar pasta SSH se não existir
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
 
-sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/g' $SSH_CONFIG
-sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' $SSH_CONFIG
+# Garantir configuração segura
+sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config
+
+sudo sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/g' /etc/ssh/sshd_config
 
 sudo systemctl restart ssh
 
-# Mostrar usuário correto
+# Mostrar infos
 USER=$(whoami)
 IP=$(hostname -I | awk '{print $1}')
 
 echo "===================================="
-echo "✅ SERVIDOR PRONTO"
+echo "✅ SERVIDOR PRONTO (SEM SENHA)"
 echo "👤 Usuário: $USER"
 echo "📡 IP: $IP"
-echo "🔑 Porta: 22"
+echo "🔑 MODO: SSH KEY ONLY"
 echo "===================================="
 
-# Salvar infos para Termux
-mkdir -p ~/clconnect
-echo $USER > ~/clconnect/user.txt
-echo $IP > ~/clconnect/ip.txt
-
-echo "💾 Dados salvos em ~/clconnect/"
-echo "===================================="
-echo "🚀 Agora conecte via Termux:"
-echo "ssh $USER@$IP"
-echo "===================================="
+echo $USER > ~/clconnect_user.txt
+echo $IP > ~/clconnect_ip.txt
