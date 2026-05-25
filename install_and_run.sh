@@ -33,6 +33,7 @@ touch central.log game.log updater.log server.log
 if [ "$EUID" -ne 0 ]; then
   echo "Para registrar serviços systemd, será necessário sudo. Tentando com sudo..."
 fi
+SYSTEMCTL_CMD="$(command -v systemctl || true)"
 sudo cp deploy/zarco.service /etc/systemd/system/zarco@.service || true
 sudo cp deploy/updater.service /etc/systemd/system/updater@.service || true
 # Add server service
@@ -69,11 +70,15 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-sudo systemctl daemon-reload || true
-sudo systemctl enable --now reposerver.service || true
-sudo systemctl enable --now updater@${USER_NAME}.service || true
-sudo systemctl enable --now zarco@${USER_NAME}.service || true
-sudo systemctl enable --now whatsapp.service || true
+if [ -n "$SYSTEMCTL_CMD" ]; then
+  sudo systemctl daemon-reload || true
+  sudo systemctl enable --now reposerver.service || true
+  sudo systemctl enable --now updater@${USER_NAME}.service || true
+  sudo systemctl enable --now zarco@${USER_NAME}.service || true
+  sudo systemctl enable --now whatsapp.service || true
+else
+  echo "systemctl não encontrado; pule a habilitação de serviços systemd neste ambiente."
+fi
 
 echo "Instalação concluída. Serviços iniciados (quando possível)."
 

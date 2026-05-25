@@ -4,6 +4,14 @@
   "secret_key": "reposerver_anime_secret_2026",
   "theme_accent": "#7c4dff",
   "theme_second": "#ff6cd7",
-  "theme_bg": "#090b1f"
-  ,"youtube_api_key": ""
+  "theme_bg": "#090b1f",
+  "youtube_api_key": "",
+  "google_client_id": "",
+  "google_client_secret": "",
+  "google_redirect_uri": "",
+  "enable_google_login": false,
+  "auto_update_on_start": false,
+  "background_image": "",
+  "cloudflare_api_token": "",
+  "cloudflare_zone_id": ""
 }

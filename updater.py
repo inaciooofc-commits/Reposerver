@@ -3,14 +3,14 @@
 import subprocess
 import time
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(BASE_DIR, 'updater.log')
 
 
 def write_log(msg):
-    ts = datetime.utcnow().isoformat() if 'datetime' in globals() else datetime.now().isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
     with open(LOG, 'a', encoding='utf-8') as f:
         f.write(f'[{ts}] {msg}\n')
 

@@ -2,7 +2,7 @@ import sqlite3
 import os
 import json
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, 'rpg_data.sqlite3')
@@ -42,7 +42,7 @@ def init_db():
 
 
 def write_log(line):
-    ts = datetime.utcnow().isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
     with open(LOG_FILE, 'a', encoding='utf-8') as f:
         f.write(f'[{ts}] {line}\n')
 

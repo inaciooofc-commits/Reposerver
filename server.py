@@ -3,7 +3,7 @@ import os
 import subprocess
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from flask import (
@@ -26,6 +26,7 @@ PAYMENTS_FILE = os.path.join(BASE_DIR, 'payments.json')
 IP_LOG_FILE = os.path.join(BASE_DIR, 'ip_log.json')
 STATUS_FILE = os.path.join(BASE_DIR, 'status.json')
 LOG_FILE = os.path.join(BASE_DIR, 'server.log')
+CENTRAL_LOG = os.path.join(BASE_DIR, 'central.log')
 
 app = Flask(__name__)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -483,7 +484,7 @@ if env_bg:
 def save_status():
     with status_lock:
         server_status['queue'] = queue
-        server_status['last_update'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+        server_status['last_update'] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
         write_json(STATUS_FILE, server_status)
 
 
@@ -497,6 +498,11 @@ def write_log(message):
     server_status['recent_events'] = server_status['recent_events'][:12]
     save_status()
 
+
+def write_central(message):
+    ts = datetime.utcnow().isoformat()
+    with open(CENTRAL_LOG, 'a', encoding='utf-8') as f:
+        f.write(f'[{ts}] {message}\n')
 
 def record_ip(username, ip):
     ip_log = load_json(IP_LOG_FILE, [])
@@ -520,27 +526,26 @@ def pull_from_git():
         write_log(f'Falha ao atualizar do Git: {exc}')
         return False, str(exc)
 
-
-  def purge_cloudflare_cache(files=None):
+def purge_cloudflare_cache(files=None):
     token = config.get('cloudflare_api_token')
     zone = config.get('cloudflare_zone_id')
     if not token or not zone or not files:
-      return False, 'Cloudflare não configurado ou nenhum arquivo fornecido.'
+        return False, 'Cloudflare não configurado ou nenhum arquivo fornecido.'
     try:
-      import urllib.request as _urlreq
-      import json as _json
-      url = f'https://api.cloudflare.com/client/v4/zones/{zone}/purge_cache'
-      data = _json.dumps({'files': files}).encode('utf-8')
-      req = _urlreq.Request(url, data=data, method='POST')
-      req.add_header('Content-Type', 'application/json')
-      req.add_header('Authorization', f'Bearer {token}')
-      with _urlreq.urlopen(req, timeout=8) as resp:
-        resp_data = resp.read().decode('utf-8')
-        js = _json.loads(resp_data)
-        success = js.get('success', False)
-        return success, js
+        import urllib.request as _urlreq
+        import json as _json
+        url = f'https://api.cloudflare.com/client/v4/zones/{zone}/purge_cache'
+        data = _json.dumps({'files': files}).encode('utf-8')
+        req = _urlreq.Request(url, data=data, method='POST')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('Authorization', f'Bearer {token}')
+        with _urlreq.urlopen(req, timeout=8) as resp:
+            resp_data = resp.read().decode('utf-8')
+            js = _json.loads(resp_data)
+            success = js.get('success', False)
+            return success, js
     except Exception as exc:
-      return False, str(exc)
+        return False, str(exc)
 
 
 def create_google_user(user_info):
@@ -610,35 +615,37 @@ def resolve_youtube_stream(url):
         ydl_opts = {'format': 'bestaudio/best', 'quiet': True, 'no_warnings': True, 'skip_download': True}
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-      title = info.get('title', url)
+            title = info.get('title', url)
             stream = info.get('url')
             if not stream and info.get('formats'):
                 stream = info['formats'][-1].get('url')
-      # If API key is present, try to fetch nicer title via YouTube Data API
-      try:
-        api_key = config.get('youtube_api_key')
-        if api_key and ('youtube.com' in url or 'youtu.be' in url):
-          # extract video id
-          vid = None
-          if 'v=' in url:
-            vid = url.split('v=')[1].split('&')[0]
-          elif 'youtu.be/' in url:
-            vid = url.split('youtu.be/')[1].split('?')[0]
-          if vid:
-            import urllib.request as _urlreq
-            import urllib.parse as _parse
-            api_url = f'https://www.googleapis.com/youtube/v3/videos?part=snippet&id={_parse.quote(vid)}&key={_parse.quote(api_key)}'
+
+            # If API key is present, try to fetch nicer title via YouTube Data API
             try:
-              with _urlreq.urlopen(api_url, timeout=5) as resp:
-                resp_data = resp.read().decode('utf-8')
-                js = json.loads(resp_data)
-                items = js.get('items', [])
-                if items:
-                  title = items[0].get('snippet', {}).get('title') or title
+                api_key = config.get('youtube_api_key')
+                if api_key and ('youtube.com' in url or 'youtu.be' in url):
+                    # extract video id
+                    vid = None
+                    if 'v=' in url:
+                        vid = url.split('v=')[1].split('&')[0]
+                    elif 'youtu.be/' in url:
+                        vid = url.split('youtu.be/')[1].split('?')[0]
+                    if vid:
+                        import urllib.request as _urlreq
+                        import urllib.parse as _parse
+                        api_url = f'https://www.googleapis.com/youtube/v3/videos?part=snippet&id={_parse.quote(vid)}&key={_parse.quote(api_key)}'
+                        try:
+                            with _urlreq.urlopen(api_url, timeout=5) as resp:
+                                resp_data = resp.read().decode('utf-8')
+                                js = json.loads(resp_data)
+                                items = js.get('items', [])
+                                if items:
+                                    title = items[0].get('snippet', {}).get('title') or title
+                        except Exception:
+                            pass
             except Exception:
-              pass
-      except Exception:
-        pass
+                pass
+
             return stream, title
     except Exception as exc:
         write_log(f'Falha ao resolver YouTube: {exc}')
@@ -884,16 +891,16 @@ def admin_action():
             flash('Preencha todos os dados para criar um usuário.')
             return redirect(url_for('admin'))
         if username in users:
-            flash('Usuário já existe.')
-            return redirect(url_for('admin'))
-      if role == 'admin' and not username.startswith('admin@'):
-        flash('Para criar um administrador, o nome deve começar com "admin@" seguido do nome do usuário.')
-        return redirect(url_for('admin'))
+          flash('Usuário já existe.')
+          return redirect(url_for('admin'))
+        if role == 'admin' and not username.startswith('admin@'):
+          flash('Para criar um administrador, o nome deve começar com "admin@" seguido do nome do usuário.')
+          return redirect(url_for('admin'))
         users[username] = {
-            'password': password,
-            'role': role,
-            'credits': 0,
-            'banned': False,
+          'password': password,
+          'role': role,
+          'credits': 0,
+          'banned': False,
         }
         save_users(users)
         write_log(f'Novo usuário criado: {username}')
@@ -924,52 +931,54 @@ def admin_action():
         return redirect(url_for('admin'))
 
     if action == 'update_config':
-        background_music = request.form.get('background_music', '').strip()
+      background_music = request.form.get('background_music', '').strip()
       background_image = request.form.get('background_image', '').strip()
-        panel_title = request.form.get('panel_title', '').strip()
-        enable_google_login = request.form.get('enable_google_login', 'false') == 'true'
-        google_client_id = request.form.get('google_client_id', '').strip()
-        google_client_secret = request.form.get('google_client_secret', '').strip()
+      panel_title = request.form.get('panel_title', '').strip()
+      enable_google_login = request.form.get('enable_google_login', 'false') == 'true'
+      google_client_id = request.form.get('google_client_id', '').strip()
+      google_client_secret = request.form.get('google_client_secret', '').strip()
       cloudflare_api_token = request.form.get('cloudflare_api_token', '').strip()
       cloudflare_zone_id = request.form.get('cloudflare_zone_id', '').strip()
-        if background_music:
-            config['background_music'] = background_music
+
+      if background_music:
+        config['background_music'] = background_music
       # if background image changed, attempt purge via Cloudflare
       prev_bg = config.get('background_image')
       if background_image:
         config['background_image'] = background_image
-        if panel_title:
-            config['panel_title'] = panel_title
-        config['enable_google_login'] = enable_google_login
-        config['google_client_id'] = google_client_id
-        config['google_client_secret'] = google_client_secret
+      if panel_title:
+        config['panel_title'] = panel_title
+      config['enable_google_login'] = enable_google_login
+      config['google_client_id'] = google_client_id
+      config['google_client_secret'] = google_client_secret
       if cloudflare_api_token:
         config['cloudflare_api_token'] = cloudflare_api_token
       if cloudflare_zone_id:
         config['cloudflare_zone_id'] = cloudflare_zone_id
-        write_json(CONFIG_FILE, config)
-        if enable_google_login and google_client_id and google_client_secret:
-            oauth.register(
-                name='google',
-                client_id=google_client_id,
-                client_secret=google_client_secret,
-                access_token_url='https://oauth2.googleapis.com/token',
-                access_token_params=None,
-                authorize_url='https://accounts.google.com/o/oauth2/v2/auth',
-                authorize_params=None,
-                api_base_url='https://www.googleapis.com/oauth2/v1/',
-                client_kwargs={'scope': 'openid email profile'},
-            )
-        write_log('Configurações atualizadas pelo administrador.')
-        # If background image changed and Cloudflare configured, purge cache
-        try:
-          if background_image and prev_bg != background_image:
-            success, resp = purge_cloudflare_cache([background_image])
-            write_log(f'Cloudflare purge result: success={success} resp={resp}')
-        except Exception as e:
-          write_log(f'Erro ao purgar Cloudflare: {e}')
-        flash('Configurações atualizadas.')
-        return redirect(url_for('admin'))
+
+      write_json(CONFIG_FILE, config)
+      if enable_google_login and google_client_id and google_client_secret:
+        oauth.register(
+          name='google',
+          client_id=google_client_id,
+          client_secret=google_client_secret,
+          access_token_url='https://oauth2.googleapis.com/token',
+          access_token_params=None,
+          authorize_url='https://accounts.google.com/o/oauth2/v2/auth',
+          authorize_params=None,
+          api_base_url='https://www.googleapis.com/oauth2/v1/',
+          client_kwargs={'scope': 'openid email profile'},
+        )
+      write_log('Configurações atualizadas pelo administrador.')
+      # If background image changed and Cloudflare configured, purge cache
+      try:
+        if background_image and prev_bg != background_image:
+          success, resp = purge_cloudflare_cache([background_image])
+          write_log(f'Cloudflare purge result: success={success} resp={resp}')
+      except Exception as e:
+        write_log(f'Erro ao purgar Cloudflare: {e}')
+      flash('Configurações atualizadas.')
+      return redirect(url_for('admin'))
 
     flash('Ação desconhecida.')
     return redirect(url_for('admin'))
@@ -997,7 +1006,7 @@ def buy_credits():
         'id': str(uuid4()),
         'user': username,
         'credits': amount,
-        'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC'),
+        'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
         'status': 'paid',
     })
     save_payments(payments)
@@ -1061,6 +1070,26 @@ def monitor_web():
   </div>
 </body>
 </html>''', **data)
+
+
+@app.route('/bot-command', methods=['POST'])
+@login_required
+@admin_required
+def bot_command():
+    payload = request.get_json() or {}
+    try:
+        import urllib.request as _urlreq
+        import json as _json
+        data = _json.dumps(payload).encode('utf-8')
+        req = _urlreq.Request('http://127.0.0.1:6000/command', data=data, method='POST')
+        req.add_header('Content-Type','application/json')
+        with _urlreq.urlopen(req, timeout=5) as resp:
+            resp_data = resp.read().decode('utf-8')
+            write_central(f'bot_command by {session.get("username")} payload={payload} resp={resp_data}')
+            return resp_data, 200, {'Content-Type':'application/json'}
+    except Exception as exc:
+        write_log(f'Erro ao enviar comando ao bot: {exc}')
+        return json.dumps({'ok':False,'error':str(exc)}), 500, {'Content-Type':'application/json'}
 
 
 @app.route('/logout')

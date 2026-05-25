@@ -9,3 +9,10 @@ build/
 dist/
 *.egg-info/
 .env
+central.log
+server.log
+game.log
+updater.log
+status.json
+*.sqlite3
+whatsapp/node_modules/

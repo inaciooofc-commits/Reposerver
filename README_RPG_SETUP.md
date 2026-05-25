@@ -34,6 +34,10 @@ sudo systemctl enable --now zarco@<youruser>
 sudo systemctl enable --now updater@<youruser>
 ```
 
+If your repository is not located at `~/Reposerver`, edit the copied service files and replace `%h/Reposerver` with the actual path to the repository.
+
+On systems without a running systemd instance (such as some containers), service enable/start commands will be skipped by `install_and_run.sh`.
+
 Security and access
 - The bot listens on localhost only. The server (`server.py`) can forward commands to the bot via HTTP POST to `http://127.0.0.1:6000/command` (we can add an endpoint).
 - For remote admin access via Termux, use SSH to your server (recommended). Do NOT expose the bot port publicly.

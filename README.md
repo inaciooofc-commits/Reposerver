@@ -50,6 +50,12 @@ sudo bash /opt/reposerver/monitor.sh
 - `users.json` armazena usuários, senhas e créditos.
 - `ip_log.json` armazena IPs de login.
 - `payments.json` armazena transações.
+- `rpg_data.sqlite3` armazena personagens e ações do RPG.
+
+## Recursos adicionais
+
+- `whatsapp/index.js` conecta ao WhatsApp usando Baileys e permite integração futura entre mensagens e o servidor.
+- `updater.py` mantém o repositório atualizado automaticamente ao detectar mudanças remotas.
 
 ## Recursos incluídos
 

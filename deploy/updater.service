@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 User=%i
-WorkingDirectory=/home/%i/Reposerver
-ExecStart=/usr/bin/env python3 /home/%i/Reposerver/updater.py
+WorkingDirectory=%h/Reposerver
+ExecStart=/usr/bin/env python3 %h/Reposerver/updater.py
 Restart=always
 RestartSec=60
 
