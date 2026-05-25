@@ -1,38 +1,34 @@
 #!/bin/bash
 
-set -e
+echo "🔥 CL TECH MATRIX - FULL INSTALL + CYBER START SYSTEM 🔥"
 
-echo "🔥 CL TECH MATRIX SAAS INSTALLER 🔥"
+PROJECT="cltech-matrix-cyber"
 
-PROJECT="cltech-matrix"
-mkdir -p $PROJECT
-cd $PROJECT
+mkdir -p "$PROJECT"
+cd "$PROJECT" || exit 1
 
-echo "📦 Inicializando projeto Node.js..."
+echo "📦 Inicializando Node.js..."
 npm init -y
 
 echo "📦 Instalando dependências..."
 npm install express socket.io sqlite3 bcrypt dotenv googleapis @google/generative-ai blessed blessed-contrib
 
-echo "📁 Criando estrutura..."
-
 mkdir -p public
 
-########################
+# =========================
 # .env
-########################
+# =========================
 cat << 'EOF' > .env
-YOUTUBE_API_KEY=AIzaSyCgg_E2mDf2ohaUxSauxqfX6lJZvjcxEJE
+YOUTUBE_API_KEY=AIzaSyCgg_E2mDf2ohaUxSauqXf6lJZvjcxEJE
 GEMINI_API_KEY=AIzaSyBkqc97R1Xztd71hnl4BaWzPtNpLjaMZJc
 PORT=3000
 EOF
 
-########################
+# =========================
 # database.js
-########################
+# =========================
 cat << 'EOF' > database.js
 const sqlite3 = require('sqlite3').verbose();
-
 const db = new sqlite3.Database('./database.db');
 
 db.serialize(() => {
@@ -61,9 +57,9 @@ db.serialize(() => {
 module.exports = db;
 EOF
 
-########################
+# =========================
 # server.js
-########################
+# =========================
 cat << 'EOF' > server.js
 require('dotenv').config();
 const express = require('express');
@@ -83,24 +79,21 @@ app.use(express.static('public'));
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-async function askOraculo(msg) {
+async function oraculo(msg) {
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
   const result = await model.generateContent(msg);
-  const response = await result.response;
-  return response.text();
+  return (await result.response).text();
 }
 
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
-  const ip = req.ip;
-
   const hash = await bcrypt.hash(password, 10);
 
-  db.run("INSERT INTO users (username, password, ip) VALUES (?, ?, ?)",
-    [username, hash, ip],
-    (err) => {
+  db.run("INSERT INTO users (username, password, ip) VALUES (?,?,?)",
+    [username, hash, req.ip],
+    err => {
       if (err) return res.status(500).send(err.message);
-      res.send("User created");
+      res.send("OK");
     }
   );
 });
@@ -109,68 +102,61 @@ app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
   db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
-    if (!user) return res.status(404).send("Not found");
+    if (!user) return res.status(404).send("NOT FOUND");
 
     const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).send("Invalid");
+    if (!ok) return res.status(401).send("INVALID");
 
-    res.send("Logged in");
+    res.send("LOGGED");
   });
-});
-
-app.get('/youtube', (req, res) => {
-  res.json({ apiKey: process.env.YOUTUBE_API_KEY });
 });
 
 io.on('connection', (socket) => {
   const ip = socket.handshake.address;
-
-  db.run("INSERT INTO logs (ip, action) VALUES (?, ?)", [ip, "connect"]);
+  db.run("INSERT INTO logs (ip, action) VALUES (?,?)", [ip, "connect"]);
 
   socket.on('chat', async (data) => {
-    let msg = data.message;
+    db.run("INSERT INTO messages (user,message) VALUES (?,?)", [data.user, data.message]);
 
-    db.run("INSERT INTO messages (user, message) VALUES (?, ?)", [data.user, msg]);
-
-    if (msg.startsWith("@oraculo")) {
-      const response = await askOraculo(msg.replace("@oraculo", ""));
-      io.emit('chat', { user: "ORACULO", message: response });
+    if (data.message.startsWith("@oraculo")) {
+      const r = await oraculo(data.message.replace("@oraculo", ""));
+      io.emit("chat", { user: "ORACULO", message: r });
     } else {
-      io.emit('chat', data);
+      io.emit("chat", data);
     }
   });
 });
 
-server.listen(3000, () => console.log("Server running on 3000"));
+server.listen(process.env.PORT || 3000, () =>
+  console.log("SERVER ONLINE")
+);
 EOF
 
-########################
+# =========================
 # admin-cli.js
-########################
+# =========================
 cat << 'EOF' > admin-cli.js
 const blessed = require('blessed');
 const contrib = require('blessed-contrib');
 const db = require('./database');
 
 const screen = blessed.screen();
+const grid = new contrib.grid({ rows: 12, cols: 12, screen });
 
-const grid = new contrib.grid({ rows: 12, cols: 12, screen: screen });
+const log = grid.set(0, 0, 6, 12, contrib.log, { label: 'CYBER LOG' });
 
-const log = grid.set(0, 0, 6, 12, contrib.log, { label: 'Logs' });
-
-const table = grid.set(6, 0, 6, 6, contrib.table, {
-  keys: true,
-  label: 'Users',
+const table = grid.set(6, 0, 6, 12, contrib.table, {
+  label: 'USERS ONLINE',
   columnWidth: [20, 20]
 });
 
-log.log("Admin CLI iniciado");
+log.log("CYBER ADMIN ONLINE");
 
 setInterval(() => {
   db.all("SELECT username, ip FROM users", (err, rows) => {
     if (rows) {
       table.setData({
-        headers: ["User", "IP"],
+        headers: ["USER", "IP"],
         data: rows.map(r => [r.username, r.ip])
       });
       screen.render();
@@ -178,27 +164,25 @@ setInterval(() => {
   });
 }, 2000);
 
-screen.key(['escape', 'q', 'C-c'], () => process.exit(0));
+screen.key(['escape','q','C-c'], () => process.exit(0));
 screen.render();
 EOF
 
-########################
-# index.html
-########################
+# =========================
+# FRONTEND
+# =========================
 cat << 'EOF' > public/index.html
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CL TECH MATRIX</title>
+<title>CL TECH CYBER</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="chat"></div>
-<input id="msg" placeholder="Digite..." />
-<button onclick="send()">Enviar</button>
-
-<audio id="bgm" autoplay loop></audio>
+<input id="msg">
+<button onclick="send()">SEND</button>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="app.js"></script>
@@ -206,61 +190,59 @@ cat << 'EOF' > public/index.html
 </html>
 EOF
 
-########################
-# style.css
-########################
 cat << 'EOF' > public/style.css
 body {
-  background: black;
-  color: #00FF41;
+  background:black;
+  color:#00ff41;
   font-family: monospace;
 }
-
-#chat {
-  height: 80vh;
-  overflow: auto;
-}
-
+#chat { height:80vh; overflow:auto; }
 input, button {
-  background: black;
-  color: #00FF41;
-  border: 1px solid #00FF41;
-  padding: 10px;
+  background:black;
+  color:#00ff41;
+  border:1px solid #00ff41;
 }
 EOF
 
-########################
-# app.js
-########################
 cat << 'EOF' > public/app.js
 const socket = io();
 
-function send() {
-  const msg = document.getElementById("msg").value;
-  socket.emit("chat", { user: "guest", message: msg });
+function send(){
+  const msg=document.getElementById("msg").value;
+  socket.emit("chat",{user:"guest",message:msg});
 }
 
-socket.on("chat", (data) => {
-  const div = document.getElementById("chat");
-  div.innerHTML += `<p><b>${data.user}:</b> ${data.message}</p>`;
+socket.on("chat",(d)=>{
+  document.getElementById("chat").innerHTML += `<p><b>${d.user}:</b> ${d.message}</p>`;
 });
 EOF
 
-########################
+# =========================
+# START.SH (CYBER MODE LINK)
+# =========================
+cat << 'EOF' > start.sh
+#!/bin/bash
+
+chmod +x start.sh
+
+bash start.sh
+EOF
+
+# =========================
 # FINAL INSTRUCTIONS
-########################
+# =========================
 echo ""
 echo "=============================="
-echo "✅ INSTALAÇÃO FINALIZADA"
+echo "🔥 INSTALL COMPLETO FINALIZADO"
 echo "=============================="
 echo ""
-echo "▶ Rodar servidor:"
-echo "   node server.js"
+echo "▶ Entrar no projeto:"
+echo "   cd $PROJECT"
 echo ""
-echo "▶ Rodar painel admin:"
-echo "   node admin-cli.js"
+echo "▶ Dar permissão:"
+echo "   chmod +x start.sh"
 echo ""
-echo "▶ Expor online com Cloudflare:"
-echo "   cloudflared tunnel --url localhost:3000"
+echo "▶ Rodar sistema cyber:"
+echo "   ./start.sh"
 echo ""
-echo "🔥 CL TECH MATRIX PRONTO 🔥"
+echo "⚡ CYBER SYSTEM READY ⚡"
