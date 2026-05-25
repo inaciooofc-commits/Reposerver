@@ -12,6 +12,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATUS_FILE = os.path.join(BASE_DIR, 'status.json')
 LOG_FILE = os.path.join(BASE_DIR, 'server.log')
 
+DEFAULT_STATUS = {
+    'current': None,
+    'queue': [],
+    'active_users': [],
+    'recent_events': [],
+    'last_update': None,
+    'monitor_message': 'Ready for anime streaming',
+}
+
 console = Console()
 
 
@@ -68,9 +77,9 @@ def render_layout(status, logs):
 
 
 def main():
-    with Live(render_layout(load_json(STATUS_FILE, {}), []), refresh_per_second=1, console=console) as live:
+    with Live(render_layout(load_json(STATUS_FILE, DEFAULT_STATUS), []), refresh_per_second=1, console=console) as live:
         while True:
-            status = load_json(STATUS_FILE, {})
+            status = load_json(STATUS_FILE, DEFAULT_STATUS)
             if os.path.exists(LOG_FILE):
                 with open(LOG_FILE, 'r', encoding='utf-8') as handle:
                     logs = handle.read().splitlines()
