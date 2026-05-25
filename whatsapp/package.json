@@ -1,0 +1,15 @@
+{
+  "name": "reposerver-whatsapp",
+  "version": "1.0.0",
+  "description": "Baileys integration for Reposerver",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@adiwajshing/baileys": "^4.4.0",
+    "qrcode-terminal": "^0.12.0",
+    "node-fetch": "^2.6.7",
+    "pino": "^8.0.0"
+  }
+}

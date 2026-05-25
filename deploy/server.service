@@ -1,0 +1,13 @@
+[Unit]
+Description=Reposerver Flask App
+After=network.target
+
+[Service]
+User=%i
+WorkingDirectory=/home/%i/Reposerver
+ExecStart=/home/%i/Reposerver/venv/bin/python /home/%i/Reposerver/server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
