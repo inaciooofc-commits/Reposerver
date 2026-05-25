@@ -27,6 +27,12 @@ sudo bash install.sh
 sudo bash /opt/reposerver/start.sh
 ```
 
+Ou use o instalador unificado:
+
+```bash
+bash /opt/reposerver/install_cloud.sh
+```
+
 4. Abra o navegador em:
 
 ```text
@@ -42,6 +48,12 @@ http://<IP_DO_PC>:5000
 
 ```bash
 sudo bash /opt/reposerver/monitor.sh
+```
+
+7. Para ver os comandos disponíveis no monitor:
+
+```bash
+sudo bash /opt/reposerver/monitor.sh --commands
 ```
 
 7. Para ver a lista de comandos no monitor:
