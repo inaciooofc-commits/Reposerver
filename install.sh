@@ -1,269 +1,266 @@
 #!/bin/bash
-# =====================================================
-#   AUDITOREPLAYER - INSTALADOR ÚNICO E DEFINITIVO
-#   CLCoreProgramINC. / CCPI
-#   Data: 24 de Maio de 2026
-# =====================================================
 
 set -e
 
-PROJECT_DIR="/opt/AuditorePlayer"
-LOG_FILE="$PROJECT_DIR/logs/install.log"
+echo "🔥 CL TECH MATRIX SAAS INSTALLER 🔥"
 
-log() {
-    echo -e "\033[36m[INFO] $1\033[0m"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE" 2>/dev/null || true
-}
+PROJECT="cltech-matrix"
+mkdir -p $PROJECT
+cd $PROJECT
 
-log_error() {
-    echo -e "\033[31m[ERRO] $1\033[0m"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERRO: $1" >> "$LOG_FILE" 2>/dev/null || true
-}
+echo "📦 Inicializando projeto Node.js..."
+npm init -y
 
-clear
-echo -e "\033[36m╔══════════════════════════════════════════════════════════════╗\033[0m"
-echo -e "\033[36m║     AUDITOREPLAYER v4.3 - INSTALADOR ÚNICO COMPLETO          ║\033[0m"
-echo -e "\033[36m║                CCPI Automata - Full Edition                  ║\033[0m"
-echo -e "\033[36m╚══════════════════════════════════════════════════════════════╝\033[0m"
+echo "📦 Instalando dependências..."
+npm install express socket.io sqlite3 bcrypt dotenv googleapis @google/generative-ai blessed blessed-contrib
 
-# ================== CRIAÇÃO DE PASTAS ==================
-log "Criando estrutura completa de pastas..."
-sudo mkdir -p $PROJECT_DIR/{public,data,logs,backup,uploads,temp,cache,music,users,config,extensions}
-sudo mkdir -p $PROJECT_DIR/public/{assets,backgrounds}
-sudo mkdir -p $PROJECT_DIR/logs/{server,bot,errors}
-sudo mkdir -p $PROJECT_DIR/backup/{daily,weekly}
-sudo mkdir -p $PROJECT_DIR/cache/{thumbnails,streams}
+echo "📁 Criando estrutura..."
 
-cd $PROJECT_DIR || { log_error "Falha ao acessar $PROJECT_DIR"; exit 1; }
+mkdir -p public
 
-# ================== DEPENDÊNCIAS ==================
-log "Instalando dependências do sistema..."
-sudo apt-get update -qq || log_error "Falha no apt update"
-sudo apt-get install -y curl wget git ffmpeg yt-dlp ufw lsof || log_error "Falha na instalação de pacotes"
-
-if ! command -v node &> /dev/null; then
-    log "Instalando Node.js..."
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo bash - || log_error "Falha no Node.js"
-    sudo apt-get install -y nodejs || log_error "Falha ao instalar Node.js"
-fi
-
-log "Instalando PM2..."
-sudo npm install -g pm2 --silent || log_error "Falha ao instalar PM2"
-
-if ! command -v cloudflared &> /dev/null; then
-    log "Instalando Cloudflared..."
-    wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    sudo dpkg -i cloudflared-linux-amd64.deb || sudo apt-get install -f -y || log_error "Falha no Cloudflared"
-fi
-
-# ================== ARQUIVOS DE CONFIGURAÇÃO ==================
-log "Criando arquivos de configuração..."
-
-cat > config.json << 'EOF'
-{
-  "adminUser": "admin",
-  "adminPass": "123456",
-  "port": 3000,
-  "creditPerPlay": 5,
-  "creditPerDownload": 15,
-  "maxQueueSize": 20
-}
+########################
+# .env
+########################
+cat << 'EOF' > .env
+YOUTUBE_API_KEY=AIzaSyCgg_E2mDf2ohaUxSauxqfX6lJZvjcxEJE
+GEMINI_API_KEY=AIzaSyBkqc97R1Xztd71hnl4BaWzPtNpLjaMZJc
+PORT=3000
 EOF
 
-cat > ecosystem.config.js << 'EOF'
-module.exports = {
-  apps: [{
-    name: 'AuditorePlayer',
-    script: 'server.js',
-    watch: false,
-    max_restarts: 15,
-    restart_delay: 4000,
-    env: { NODE_ENV: 'production' }
-  }]
-};
+########################
+# database.js
+########################
+cat << 'EOF' > database.js
+const sqlite3 = require('sqlite3').verbose();
+
+const db = new sqlite3.Database('./database.db');
+
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT,
+    ip TEXT
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user TEXT,
+    message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip TEXT,
+    action TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+});
+
+module.exports = db;
 EOF
 
-# ================== SERVER.JS ==================
-cat > server.js << 'EOF'
+########################
+# server.js
+########################
+cat << 'EOF' > server.js
+require('dotenv').config();
 const express = require('express');
-const fs = require('fs');
-const { exec } = require('child_process');
+const http = require('http');
+const bcrypt = require('bcrypt');
+const { Server } = require('socket.io');
+const db = require('./database');
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
 app.use(express.json());
 app.use(express.static('public'));
 
-const config = JSON.parse(fs.readFileSync('config.json'));
-const PORT = config.port || 3000;
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
-    if (username === config.adminUser && password === config.adminPass) {
-        res.json({ success: true, isAdmin: true });
-    } else {
-        res.json({ success: true, isAdmin: false });
+async function askOraculo(msg) {
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  const result = await model.generateContent(msg);
+  const response = await result.response;
+  return response.text();
+}
+
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+  const ip = req.ip;
+
+  const hash = await bcrypt.hash(password, 10);
+
+  db.run("INSERT INTO users (username, password, ip) VALUES (?, ?, ?)",
+    [username, hash, ip],
+    (err) => {
+      if (err) return res.status(500).send(err.message);
+      res.send("User created");
     }
+  );
 });
 
-app.get('/api/search', (req, res) => {
-    const query = req.query.q;
-    exec(`yt-dlp "ytsearch10:${query}" --dump-json`, (error, stdout) => {
-        if (error) return res.json([]);
-        const results = stdout.trim().split('\n').map(l => JSON.parse(l));
-        res.json(results);
-    });
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
+    if (!user) return res.status(404).send("Not found");
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).send("Invalid");
+
+    res.send("Logged in");
+  });
 });
 
-app.get('/api/stream/:videoId', (req, res) => {
-    const videoId = req.params.videoId;
-    const url = `https://www.youtube.com/watch?v=${videoId}`;
-    res.set('Content-Type', 'audio/mpeg');
-    exec(`yt-dlp -f bestaudio --output - "${url}"`, {maxBuffer: 200*1024*1024}, (err, stdout) => {
-        if (err) return res.status(500).send("Stream error");
-        res.send(stdout);
-    });
+app.get('/youtube', (req, res) => {
+  res.json({ apiKey: process.env.YOUTUBE_API_KEY });
 });
 
-app.get('/api/download/:videoId/:title', (req, res) => {
-    const { videoId, title } = req.params;
-    const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
-    res.set('Content-Disposition', `attachment; filename="${safeTitle}.mp3"`);
-    const url = `https://www.youtube.com/watch?v=${videoId}`;
-    exec(`yt-dlp -f bestaudio --extract-audio --audio-format mp3 -o - "${url}"`, {maxBuffer: 500*1024*1024}, (err, stdout) => {
-        if (err) return res.status(500).send("Download error");
-        res.send(stdout);
-    });
+io.on('connection', (socket) => {
+  const ip = socket.handshake.address;
+
+  db.run("INSERT INTO logs (ip, action) VALUES (?, ?)", [ip, "connect"]);
+
+  socket.on('chat', async (data) => {
+    let msg = data.message;
+
+    db.run("INSERT INTO messages (user, message) VALUES (?, ?)", [data.user, msg]);
+
+    if (msg.startsWith("@oraculo")) {
+      const response = await askOraculo(msg.replace("@oraculo", ""));
+      io.emit('chat', { user: "ORACULO", message: response });
+    } else {
+      io.emit('chat', data);
+    }
+  });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 AuditorePlayer rodando na porta ${PORT}`);
+server.listen(3000, () => console.log("Server running on 3000"));
+EOF
+
+########################
+# admin-cli.js
+########################
+cat << 'EOF' > admin-cli.js
+const blessed = require('blessed');
+const contrib = require('blessed-contrib');
+const db = require('./database');
+
+const screen = blessed.screen();
+
+const grid = new contrib.grid({ rows: 12, cols: 12, screen: screen });
+
+const log = grid.set(0, 0, 6, 12, contrib.log, { label: 'Logs' });
+
+const table = grid.set(6, 0, 6, 6, contrib.table, {
+  keys: true,
+  label: 'Users',
+  columnWidth: [20, 20]
+});
+
+log.log("Admin CLI iniciado");
+
+setInterval(() => {
+  db.all("SELECT username, ip FROM users", (err, rows) => {
+    if (rows) {
+      table.setData({
+        headers: ["User", "IP"],
+        data: rows.map(r => [r.username, r.ip])
+      });
+      screen.render();
+    }
+  });
+}, 2000);
+
+screen.key(['escape', 'q', 'C-c'], () => process.exit(0));
+screen.render();
+EOF
+
+########################
+# index.html
+########################
+cat << 'EOF' > public/index.html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CL TECH MATRIX</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="chat"></div>
+<input id="msg" placeholder="Digite..." />
+<button onclick="send()">Enviar</button>
+
+<audio id="bgm" autoplay loop></audio>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
+EOF
+
+########################
+# style.css
+########################
+cat << 'EOF' > public/style.css
+body {
+  background: black;
+  color: #00FF41;
+  font-family: monospace;
+}
+
+#chat {
+  height: 80vh;
+  overflow: auto;
+}
+
+input, button {
+  background: black;
+  color: #00FF41;
+  border: 1px solid #00FF41;
+  padding: 10px;
+}
+EOF
+
+########################
+# app.js
+########################
+cat << 'EOF' > public/app.js
+const socket = io();
+
+function send() {
+  const msg = document.getElementById("msg").value;
+  socket.emit("chat", { user: "guest", message: msg });
+}
+
+socket.on("chat", (data) => {
+  const div = document.getElementById("chat");
+  div.innerHTML += `<p><b>${data.user}:</b> ${data.message}</p>`;
 });
 EOF
 
-# ================== FRONTEND (public/) ==================
-mkdir -p public
-
-cat > public/index.html << 'HTML'
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><title>AuditorePlayer</title><link rel="stylesheet" href="style.css"></head>
-<body>
-<div class="card">
-    <h1>AUDITORPLAYER</h1>
-    <h3>CLCoreProgramINC.</h3>
-    <input type="text" id="username" placeholder="Usuário">
-    <input type="password" id="password" placeholder="Senha">
-    <button class="btn" onclick="login()">ENTRAR</button>
-    <p><small>Admin: admin / 123456</small></p>
-</div>
-<script src="app.js"></script>
-</body>
-</html>
-HTML
-
-cat > public/dashboard.html << 'HTML'
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><title>Player</title><link rel="stylesheet" href="style.css"></head>
-<body>
-<div class="card">
-    <h1>🎵 AUDITOREPLAYER</h1>
-    <p>Créditos: <strong id="credits">50</strong></p>
-    <input type="text" id="search" placeholder="Buscar música...">
-    <button class="btn" onclick="searchMusic()">Buscar</button>
-    <div id="results"></div>
-    <h2>Fila</h2><div id="queue"></div>
-    <div id="player"><h3 id="nowPlaying">Nada tocando</h3><audio id="audioPlayer" controls></audio></div>
-</div>
-<script src="app.js"></script>
-</body>
-</html>
-HTML
-
-cat > public/admin.html << 'HTML'
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><title>Painel Admin</title><link rel="stylesheet" href="style.css"></head>
-<body>
-<div class="card">
-    <h1>🔧 PAINEL MESTRE</h1>
-    <button class="btn" onclick="addCredits()">+ Créditos</button>
-    <button class="btn" onclick="banIP()">Banir IP</button>
-    <button class="btn" onclick="viewIPs()">Ver IPs</button>
-    <div id="adminContent"></div>
-</div>
-<script src="app.js"></script>
-</body>
-</html>
-HTML
-
-cat > public/style.css << 'CSS'
-body { font-family: monospace; background: linear-gradient(#000, #0a001f); color: #00ff41; margin:0; padding:20px; }
-.card { background: rgba(10,15,35,0.97); border: 2px solid #00ff41; padding: 25px; border-radius: 12px; max-width: 1100px; margin: auto; }
-.btn { background:#00ff41; color:#000; padding:12px 22px; border:none; margin:6px; cursor:pointer; font-weight:bold; }
-.btn:hover { background:#00dd33; transform:scale(1.05); }
-CSS
-
-cat > public/app.js << 'JS'
-let queue = []; let currentCredits = 50;
-
-function login() {
-    const u = document.getElementById('username').value;
-    const p = document.getElementById('password').value;
-    fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})})
-    .then(r=>r.json()).then(d=>{ if(d.success) window.location.href = d.isAdmin ? 'admin.html' : 'dashboard.html'; });
-}
-
-async function searchMusic() {
-    const q = document.getElementById('search').value;
-    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-    const results = await res.json();
-    let html = '<h3>Resultados:</h3>';
-    results.forEach(v => {
-        html += `<div style="margin:10px 0;padding:10px;border:1px solid #00ff41;"><strong>${v.title}</strong><br>
-        <button class="btn" onclick="addToQueue('\( {v.id}',' \){v.title.replace(/'/g,"")}')">+ Fila</button>
-        <button class="btn" onclick="playNow('\( {v.id}',' \){v.title.replace(/'/g,"")}')">▶ Tocar</button>
-        <button class="btn" onclick="download('\( {v.id}',' \){v.title.replace(/'/g,"")}')">↓ Download</button></div>`;
-    });
-    document.getElementById('results').innerHTML = html;
-}
-
-function addToQueue(id,title){ if(currentCredits<3) return alert("Créditos insuficientes!"); queue.push({id,title}); currentCredits-=3; updateQueue(); updateCredits(); }
-function playNow(id,title){ if(currentCredits<5) return alert("Créditos insuficientes!"); currentCredits-=5; updateCredits(); document.getElementById('nowPlaying').textContent=`Tocando: \( {title}`; document.getElementById('audioPlayer').src=`/api/stream/ \){id}`; document.getElementById('audioPlayer').play(); }
-function download(id,title){ if(currentCredits<15) return alert("Créditos insuficientes!"); currentCredits-=15; updateCredits(); window.location.href=`/api/download/\( {id}/ \){encodeURIComponent(title)}`; }
-function updateQueue(){ let html=''; queue.forEach((item,i)=>html+=`<div>${i+1}. ${item.title}</div>`); document.getElementById('queue').innerHTML=html; }
-function updateCredits(){ document.getElementById('credits').textContent = currentCredits; }
-function addCredits(){ alert('✅ Créditos adicionados'); }
-function banIP(){ const ip=prompt('IP:'); alert(`IP ${ip} banido`); }
-function viewIPs(){ document.getElementById('adminContent').innerHTML = '<p>📡 IPs conectados (simulado)</p>'; }
-JS
-
-# ================== BOT INTELIGENTE ==================
-cat > ccpi-automata.sh << 'AUTOMATA'
-#!/bin/bash
-BASE_DIR="/opt/AuditorePlayer"
-LOG_FILE="$BASE_DIR/logs/automata.log"
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
-
-while true; do
-    cd $BASE_DIR
-    if ! pm2 list | grep -q "AuditorePlayer"; then
-        log "⚠️ Servidor caído. Reiniciando..."
-        pm2 start ecosystem.config.js --name AuditorePlayer
-    fi
-    sleep 15
-done
-AUTOMATA
-
-chmod +x ccpi-automata.sh monitor-master.sh 2>/dev/null || true
-
-log "✅ INSTALAÇÃO CONCLUÍDA COM SUCESSO!"
+########################
+# FINAL INSTRUCTIONS
+########################
 echo ""
-echo "📁 Projeto instalado em: $PROJECT_DIR"
-echo "🔑 Usuário Admin: admin / 123456"
+echo "=============================="
+echo "✅ INSTALAÇÃO FINALIZADA"
+echo "=============================="
 echo ""
-echo "Para iniciar o sistema completo:"
-echo "   cd /opt/AuditorePlayer"
-echo "   bash ccpi-automata.sh"
+echo "▶ Rodar servidor:"
+echo "   node server.js"
 echo ""
-echo "O CCPI Automata irá gerenciar tudo automaticamente."
+echo "▶ Rodar painel admin:"
+echo "   node admin-cli.js"
+echo ""
+echo "▶ Expor online com Cloudflare:"
+echo "   cloudflared tunnel --url localhost:3000"
+echo ""
+echo "🔥 CL TECH MATRIX PRONTO 🔥"
