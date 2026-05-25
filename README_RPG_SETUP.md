@@ -18,6 +18,16 @@ python3 zarco_bot.py &
 ```bash
 curl -s -X POST http://127.0.0.1:6000/command -H 'Content-Type: application/json' -d '{"who":"you","text":"roll 1d20+5"}'
 ```
+
+4. Veja a lista de comandos do bot:
+```bash
+curl -s http://127.0.0.1:6000/help
+```
+
+5. Veja a lista completa de comandos do projeto no terminal:
+```bash
+python3 monitor.py --commands
+```
 4. Inicie o updater (opcional):
 ```bash
 python3 updater.py &

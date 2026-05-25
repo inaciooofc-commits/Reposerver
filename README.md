@@ -44,6 +44,12 @@ http://<IP_DO_PC>:5000
 sudo bash /opt/reposerver/monitor.sh
 ```
 
+7. Para ver a lista de comandos no monitor:
+
+```bash
+sudo bash /opt/reposerver/monitor.sh --commands
+```
+
 ## Configuração
 
 - `config.json` permite trocar a música de fundo e os temas.

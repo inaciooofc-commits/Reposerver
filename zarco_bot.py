@@ -12,6 +12,16 @@ from rpg.engine import roll_dice, create_character, get_character, save_action, 
 
 app = Flask('zarco_bot')
 
+AVAILABLE_COMMANDS = [
+    'roll <expr>          - exemplo: roll 1d20+5',
+    'rolar <expr>         - exemplo: rolar 2d6+3',
+    'create char <nome>   - cria personagem',
+    'create character <nome> - cria personagem',
+    'show char <nome>     - exibe personagem',
+    'show character <nome> - exibe personagem',
+    'qualquer texto livre  - ecoa como roleplay',
+]
+
 
 def parse_command(text):
     t = text.strip().lower()
@@ -25,8 +35,27 @@ def parse_command(text):
     if t.startswith('show char ') or t.startswith('show character '):
         name = text.split(' ', 2)[2].strip()
         return ('show_char', name)
+    if t in ['help', '/help', 'commands', '/commands']:
+        return ('help', '')
     # fallback: treat as chat/action
     return ('say', text)
+
+
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({
+        'ok': True,
+        'message': 'ZarcoBOT RPG is online. Use POST /command with JSON {who, text}.',
+        'help': '/help',
+    })
+
+
+@app.route('/help', methods=['GET'])
+def help_route():
+    return jsonify({
+        'ok': True,
+        'available_commands': AVAILABLE_COMMANDS,
+    })
 
 
 @app.route('/command', methods=['POST'])
@@ -46,6 +75,8 @@ def command():
     if cmd == 'show_char':
         ch = get_character(arg)
         return jsonify({'ok': True, 'character': ch})
+    if cmd == 'help':
+        return jsonify({'ok': True, 'available_commands': AVAILABLE_COMMANDS})
     # say/action
     save_action(who, text, {'message': text})
     return jsonify({'ok': True, 'echo': text})

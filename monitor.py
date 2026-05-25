@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import time
@@ -11,6 +12,7 @@ from rich.table import Table
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATUS_FILE = os.path.join(BASE_DIR, 'status.json')
 LOG_FILE = os.path.join(BASE_DIR, 'server.log')
+COMMANDS_FILE = os.path.join(BASE_DIR, 'COMMANDS.md')
 
 DEFAULT_STATUS = {
     'current': None,
@@ -34,7 +36,17 @@ def load_json(path, default):
         return default
 
 
-def render_layout(status, logs):
+def load_text(path, default=''):
+    if not os.path.exists(path):
+        return default
+    try:
+        with open(path, 'r', encoding='utf-8') as handle:
+            return handle.read()
+    except Exception:
+        return default
+
+
+def render_layout(status, logs, commands_text=None):
     layout = Layout()
     layout.split_column(
         Layout(name='header', size=5),
@@ -63,7 +75,10 @@ def render_layout(status, logs):
     if not status.get('queue'):
         queue_table.add_row('Fila vazia', '-')
 
-    layout['body']['right'].update(Panel(queue_table, title='Próximas músicas', border_style='green'))
+    if commands_text is not None:
+        layout['body']['right'].update(Panel(commands_text or 'Nenhum comando encontrado.', title='Comandos Disponíveis', border_style='green'))
+    else:
+        layout['body']['right'].update(Panel(queue_table, title='Próximas músicas', border_style='green'))
 
     events = '\n'.join(status.get('recent_events', [])[:6]) or 'Sem eventos recentes.'
     layout['footer'].split_row(Layout(name='events'), Layout(name='logs'))
@@ -72,12 +87,18 @@ def render_layout(status, logs):
     log_text = '\n'.join(logs[-8:]) or 'Sem logs ainda.'
     layout['footer']['logs'].update(Panel(log_text, title='Logs de servidor', border_style='bright_black'))
 
-    layout['header'].update(Panel('[bold]Aperte Ctrl+C para sair[/bold]\nAtualizando a cada segundo', border_style='bright_white'))
+    mode_label = 'Comandos' if commands_text is not None else 'Padrão'
+    layout['header'].update(Panel(f'[bold]Aperte Ctrl+C para sair[/bold]\nModo: {mode_label}\nAtualizando a cada segundo', border_style='bright_white'))
     return layout
 
 
 def main():
-    with Live(render_layout(load_json(STATUS_FILE, DEFAULT_STATUS), []), refresh_per_second=1, console=console) as live:
+    parser = argparse.ArgumentParser(description='Monitor do Reposerver')
+    parser.add_argument('--commands', action='store_true', help='Mostrar comandos disponíveis no monitor')
+    args = parser.parse_args()
+    commands_text = load_text(COMMANDS_FILE, 'Nenhum arquivo de comandos encontrado.') if args.commands else None
+
+    with Live(render_layout(load_json(STATUS_FILE, DEFAULT_STATUS), [], commands_text), refresh_per_second=1, console=console) as live:
         while True:
             status = load_json(STATUS_FILE, DEFAULT_STATUS)
             if os.path.exists(LOG_FILE):
@@ -85,7 +106,9 @@ def main():
                     logs = handle.read().splitlines()
             else:
                 logs = []
-            live.update(render_layout(status, logs))
+            if args.commands:
+                commands_text = load_text(COMMANDS_FILE, 'Nenhum arquivo de comandos encontrado.')
+            live.update(render_layout(status, logs, commands_text))
             time.sleep(1)
 
 
