@@ -1,0 +1,13 @@
+[Unit]
+Description=Reposerver auto-updater
+After=network.target
+
+[Service]
+User=%i
+WorkingDirectory=/home/%i/Reposerver
+ExecStart=/usr/bin/env python3 /home/%i/Reposerver/updater.py
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target

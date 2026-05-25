@@ -1,0 +1,13 @@
+[Unit]
+Description=ZarcoBOT-RPG service
+After=network.target
+
+[Service]
+User=%i
+WorkingDirectory=/home/%i/Reposerver
+ExecStart=/usr/bin/env python3 /home/%i/Reposerver/zarco_bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
