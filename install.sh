@@ -1,333 +1,214 @@
 #!/bin/bash
-# ================================================
-# CL TECH OS v4.3 - Instalador Completo
-# antiX Panel + Sasuke Background + YouTube API
-# Google Search + Terminal Hacker + Admin Panel
-# ================================================
+# CL TECH OS v4.3 — MATRIX Edition (Antix - Instalador Único)
+clear
+echo -e "\033[36m╔══════════════════════════════════════════════════════════════╗\033[0m"
+echo -e "\033[36m║           CL TECH OS v4.3 — MATRIX EDITION (Antix)           ║\033[0m"
+echo -e "\033[36m║                 Instalador Completo - Tudo em Um             ║\033[0m"
+echo -e "\033[36m╚══════════════════════════════════════════════════════════════╝\033[0m"
 
-set -e
+# Atualizar sistema e instalar dependências
+echo "[1/7] Atualizando sistema e instalando pacotes..."
+sudo apt-get update -qq && sudo apt-get install -y curl wget git ffmpeg yt-dlp ufw lsof
 
-echo "🔥 Iniciando instalação do CL TECH OS v4.3 COMPLETO..."
-
-if [[ $EUID -ne 0 ]]; then
-   echo "❌ Execute como root (sudo)"
-   exit 1
-fi
-
-# ==================== PACOTES ====================
-apt-get update -qq
-apt-get install -y curl wget git ffmpeg mpv yt-dlp whiptail build-essential ufw
-
-# Node.js + PM2
+# Instalar Node.js
 if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-    apt-get install -y nodejs
+    echo "[2/7] Instalando Node.js..."
+    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo bash -
+    sudo apt-get install -y nodejs
 fi
-npm install -g pm2 --silent
 
-# Cloudflared
+# Instalar PM2
+echo "[3/7] Instalando PM2..."
+sudo npm install -g pm2 --silent
+
+# Instalar Cloudflared
+echo "[4/7] Instalando Cloudflared..."
 if ! command -v cloudflared &> /dev/null; then
     wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    dpkg -i cloudflared-linux-amd64.deb || apt-get install -f -y
+    sudo dpkg -i cloudflared-linux-amd64.deb || sudo apt-get install -f -y
     rm -f cloudflared-linux-amd64.deb
 fi
 
-# ==================== DIRETÓRIOS ====================
-mkdir -p /opt/cltech/{public,logs,downloads}
+# Criar estrutura
+echo "[5/7] Criando estrutura de pastas e dependências..."
+sudo mkdir -p /opt/cltech/{public,data}
+sudo chown -R $USER:$USER /opt/cltech
 cd /opt/cltech
 
-touch logs/cltech.log logs/cf.log
+# Inicializar Node.js e instalar Express
+npm init -y > /dev/null
+npm install express > /dev/null
 
-# ==================== CONFIG ====================
-cat > config.json << EOF
+# ================== CRIANDO TODOS OS ARQUIVOS ==================
+
+echo "[6/7] Criando todos os arquivos..."
+
+# config.json
+cat > config.json << 'EOF'
 {
-  "port": 3000,
-  "pixKey": "566.019.878.32",
-  "pixName": "Pedro Inácio dos Santos de Menezes",
   "adminUser": "admin",
-  "adminPass": "admin2026",
-  "youtubeApiKey": "AIzaSyBkqc97R1Xztd71hnl4BaWzPtNpLjaMZJc"
+  "adminPass": "123456",
+  "port": 3000
 }
 EOF
 
-# ==================== FIREWALL ====================
-echo "🔒 Configurando Firewall..."
-ufw --force reset
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow ssh
-ufw --force enable
-
-# ==================== FRONTEND ====================
-# Fundo Sasuke
-wget -q -O public/background.jpg "https://images.unsplash.com/photo-1618331837616-9e2f8c3e0c7e" || true
-
-cat > public/index.html << 'HTML'
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>antiX Control Panel</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.9)), url('/background.jpg');
-            background-size: cover;
-            background-position: center;
-            color: white;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .card {
-            background: rgba(15,23,42,0.95);
-            padding: 40px;
-            border-radius: 16px;
-            width: 420px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
-        }
-        input, button { width: 100%; padding: 14px; margin: 10px 0; border-radius: 8px; }
-        button { background: #3b82f6; font-weight: 600; cursor: pointer; }
-        button:hover { background: #2563eb; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h2 style="text-align:center;">antiX Control Panel</h2>
-        <input type="text" id="username" value="admin" placeholder="Usuário">
-        <input type="password" id="password" value="admin2026" placeholder="Senha">
-        <button onclick="login()">ENTRAR NO SISTEMA</button>
-        <button onclick="window.location.href='/dashboard.html'" style="background:#7c3aed">Dashboard</button>
-        <button onclick="window.location.href='/admin.html'" style="background:#6b21a8">🔧 Painel Admin</button>
-    </div>
-
-    <script>
-        async function login() {
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    username: document.getElementById('username').value,
-                    password: document.getElementById('password').value
-                })
-            });
-            const data = await res.json();
-            if (data.success) window.location.href = '/dashboard.html';
-            else alert("Credenciais inválidas");
-        }
-    </script>
-</body>
-</html>
-HTML
-
-# Dashboard com YouTube + Google
-cat > public/dashboard.html << 'DASH'
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - antiX</title>
-    <style>
-        body { background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.95)), url('/background.jpg'); background-size: cover; color:white; font-family:Segoe UI; padding:30px; }
-        .result { background:rgba(255,255,255,0.1); padding:12px; margin:10px 0; border-radius:8px; }
-    </style>
-</head>
-<body>
-    <h1>🔍 CL TECH OS - Buscador</h1>
-    <input type="text" id="query" placeholder="Buscar música ou qualquer coisa" style="width:65%; padding:12px;">
-    <button onclick="searchYouTube()">🎵 YouTube</button>
-    <button onclick="searchGoogle()">🌐 Google</button>
-
-    <div id="results"></div>
-
-    <script>
-        async function searchYouTube() {
-            const q = document.getElementById('query').value;
-            const res = await fetch('/api/search-youtube?q=' + encodeURIComponent(q));
-            const data = await res.json();
-            let html = '';
-            data.forEach(item => {
-                html += `<div class="result"><strong>\( {item.title}</strong><br><button onclick="download(' \){item.videoId}')">⬇️ Baixar MP3</button></div>`;
-            });
-            document.getElementById('results').innerHTML = html;
-        }
-
-        function searchGoogle() {
-            const q = document.getElementById('query').value;
-            if(q) window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank');
-        }
-
-        async function download(videoId) {
-            await fetch('/api/download-music', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({query: videoId})
-            });
-            alert('✅ Download iniciado!');
-        }
-    </script>
-</body>
-</html>
-DASH
-
-# Painel Admin
-cat > public/admin.html << 'ADMIN'
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Painel Admin</title>
-    <style>body{background:rgba(0,0,0,0.95);color:white;padding:40px;font-family:Segoe UI;}</style>
-</head>
-<body>
-    <h1>🔧 Painel do Administrador</h1>
-    <input type="text" id="bgUrl" placeholder="URL da nova imagem de fundo" style="width:100%;padding:12px;">
-    <button onclick="changeBackground()" style="padding:12px;margin-top:10px;">Aplicar Fundo</button>
-
-    <script>
-        async function changeBackground() {
-            const url = document.getElementById('bgUrl').value;
-            if(url) {
-                await fetch('/api/change-background', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url})});
-                alert('Fundo alterado com sucesso!');
-                location.reload();
-            }
-        }
-    </script>
-</body>
-</html>
-ADMIN
-
-# ==================== BACKEND ====================
+# server.js
 cat > server.js << 'EOF'
 const express = require('express');
 const fs = require('fs');
-const { execSync } = require('child_process');
 const app = express();
-const PORT = 3000;
 
 app.use(express.json());
 app.use(express.static('public'));
 
-const config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
+const config = JSON.parse(fs.readFileSync('config.json'));
+
+let users = [];
+try { users = JSON.parse(fs.readFileSync('data/users.json')); } 
+catch(e) { fs.writeFileSync('data/users.json', '[]'); }
 
 app.post('/api/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === config.adminUser && password === config.adminPass) {
-    res.json({ success: true });
-  } else {
-    res.status(401).json({ success: false, message: "Credenciais inválidas" });
-  }
+    const { username, password } = req.body;
+    if (username === config.adminUser && password === config.adminPass) {
+        res.json({ success: true, isAdmin: true });
+    } else {
+        res.json({ success: true, isAdmin: false });
+    }
 });
 
-app.get('/api/search-youtube', async (req, res) => {
-  const query = req.query.q;
-  try {
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=\( {encodeURIComponent(query)}&type=video&maxResults=8&key= \){config.youtubeApiKey}`);
-    const data = await response.json();
-    const results = data.items.map(item => ({
-      videoId: item.id.videoId,
-      title: item.snippet.title
-    }));
-    res.json(results);
-  } catch (e) {
-    res.json([]);
-  }
-});
+app.get('/api/connected-ips', (req, res) => res.json({ ips: ["Exemplo: 179.185.x.x"] }));
+app.post('/api/add-credits', (req, res) => res.json({ success: true, message: "Créditos adicionados" }));
+app.post('/api/remove-credits', (req, res) => res.json({ success: true, message: "Créditos removidos" }));
+app.post('/api/ban-ip', (req, res) => res.json({ success: true, message: "IP banido" }));
+app.post('/api/confirm-pix', (req, res) => res.json({ success: true, message: "Pagamento confirmado - Envie para 5511951289502" }));
 
-app.post('/api/download-music', (req, res) => {
-  const { query } = req.body;
-  try {
-    execSync(`yt-dlp -x --audio-format mp3 -o "downloads/%(title)s.%(ext)s" "ytsearch1:${query}"`, {stdio: 'ignore'});
-    res.json({success: true});
-  } catch(e) {
-    res.status(500).json({success: false});
-  }
-});
-
-app.post('/api/change-background', (req, res) => {
-  const { url } = req.body;
-  try {
-    execSync(`wget -q -O public/background.jpg "${url}"`, {stdio: 'ignore'});
-    res.json({success: true});
-  } catch(e) { res.status(500).json({success: false}); }
-});
-
-app.listen(PORT, () => console.log(`🚀 CL TECH OS v4.3 rodando em http://localhost:${PORT}`));
+app.listen(config.port, () => console.log('🚀 CL TECH OS rodando na porta ' + config.port));
 EOF
 
-npm init -y --silent
-npm install express --silent
-
-# ==================== MONITOR TERMINAL HACKER ====================
-cat > monitor.sh << 'MONITOR'
+# monitor-master.sh
+cat > monitor-master.sh << 'EOF'
 #!/bin/bash
-clear
-echo "=============================================================="
-echo "          CL TECH OS v4.3 - MATRIX TERMINAL"
-echo "               Pedro Inácio - São Paulo"
-echo "=============================================================="
-echo ""
-
 while true; do
-  echo "1) Buscar e Reproduzir Música"
-  echo "2) Busca Rápida no Google"
-  echo "3) Status Completo do Servidor"
-  echo "4) Ver Logs"
-  echo "5) Reiniciar Serviços"
-  echo "6) Trocar Fundo do Painel"
-  echo "7) Sair"
-  echo ""
-  read -p "→ Escolha: " choice
-
-  case $choice in
-    1) read -p "🎵 Música: " m; mpv --no-video "$(yt-dlp -g "ytsearch1:$m")" ;;
-    2) read -p "🔍 Buscar: " g; xdg-open "https://google.com/search?q=$g" 2>/dev/null || echo "https://google.com/search?q=$g" ;;
-    3) uptime; free -h; pm2 list; df -h ;;
-    4) tail -n 30 logs/cltech.log ;;
-    5) systemctl restart cltech ;;
-    6) read -p "URL da imagem: " url; wget -q -O public/background.jpg "$url" && echo "Fundo alterado!" ;;
-    7) echo "Saindo..."; exit 0 ;;
-    *) echo "Opção inválida!" ;;
-  esac
-  echo ""
-  read -p "Pressione ENTER para continuar..."
   clear
+  echo "======================================="
+  echo "   CL TECH OS v4.3 - MODO MESTRE"
+  echo "======================================="
+  echo "1) Ver IPs Conectados"
+  echo "2) Reiniciar Sistema"
+  echo "3) Sair"
+  read -p "Opção: " op
+  case $op in
+    1) echo "IPs conectados:"; ss -tlnp | grep node;;
+    2) pm2 restart cltech;;
+    3) exit 0;;
+  esac
+  read -p "Pressione Enter para continuar..."
 done
-MONITOR
-
-chmod +x monitor.sh
-echo 'alias cltech="cd /opt/cltech && ./monitor.sh"' >> /root/.bashrc
-
-# ==================== SERVIÇOS ====================
-pm2 start server.js --name cltech
-pm2 save
-
-cat > /etc/systemd/system/cltech.service << EOF
-[Unit]
-Description=CL TECH OS Server
-After=network.target
-[Service]
-Type=simple
-WorkingDirectory=/opt/cltech
-ExecStart=/usr/bin/pm2-runtime start server.js --name cltech
-Restart=always
-User=root
-[Install]
-WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
-systemctl enable --now cltech.service
+# start-cloudflare.sh
+cat > start-cloudflare.sh << 'EOF'
+#!/bin/bash
+cd /opt/cltech
+pm2 start ecosystem.config.js
+echo "✅ Servidor iniciado com PM2"
+echo "🚀 Iniciando Cloudflare Tunnel..."
+cloudflared tunnel --url http://localhost:3000
+EOF
 
+# ecosystem.config.js
+cat > ecosystem.config.js << 'EOF'
+module.exports = {
+  apps: [{
+    name: 'cltech',
+    script: 'server.js',
+    watch: false,
+    env: { NODE_ENV: 'production' }
+  }]
+};
+EOF
+
+# public/index.html
+mkdir -p public
+cat > public/index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>CL TECH OS - Login</title><link rel="stylesheet" href="style.css"></head>
+<body>
+    <div class="card">
+        <h1>CL TECH OS v4.3</h1>
+        <input type="text" id="username" placeholder="Usuário">
+        <input type="password" id="password" placeholder="Senha">
+        <button class="btn" onclick="login()">Entrar</button>
+        <p>Admin: admin / 123456</p>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
+EOF
+
+# public/dashboard.html
+cat > public/dashboard.html << 'EOF'
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Dashboard</title><link rel="stylesheet" href="style.css"></head>
+<body><div class="card"><h1>Bem-vindo ao CL TECH OS</h1><input type="text" id="search" placeholder="Buscar música...">
+<button class="btn" onclick="searchMusic()">Buscar</button><div id="results"></div><hr><p>Pix: 5511951289502</p></div><script src="app.js"></script></body></html>
+EOF
+
+# public/admin.html
+cat > public/admin.html << 'EOF'
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Painel Admin</title><link rel="stylesheet" href="style.css"></head>
+<body><div class="card"><h1>🔧 PAINEL MESTRE</h1>
+<button class="btn" onclick="addCredits()">+ Créditos</button>
+<button class="btn" onclick="removeCredits()">- Créditos</button>
+<button class="btn" onclick="banIP()">Banir IP</button>
+<button class="btn" onclick="viewIPs()">Ver IPs</button>
+<button class="btn" onclick="confirmPix()">Confirmar Pix</button>
+<div id="adminContent"></div></div><script src="app.js"></script></body></html>
+EOF
+
+# public/style.css
+cat > public/style.css << 'EOF'
+body { font-family: monospace; background: #000; color: #00ff41; margin:0; padding:20px; }
+.card { background: rgba(10,15,35,0.95); border: 1px solid #00ff41; padding: 30px; border-radius: 8px; max-width: 900px; margin: auto; }
+.btn { background:#00ff41; color:black; padding:10px 20px; border:none; margin:5px; cursor:pointer; }
+.btn:hover { background:#00cc33; }
+EOF
+
+# public/app.js
+cat > public/app.js << 'EOF'
+function login() {
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p})})
+    .then(r=>r.json()).then(d=>{ if(d.success) window.location.href = d.isAdmin ? 'admin.html' : 'dashboard.html'; });
+}
+function searchMusic(){ document.getElementById('results').innerHTML = '<p>Buscando...</p>'; }
+function addCredits(){ alert('Créditos adicionados'); }
+function removeCredits(){ alert('Créditos removidos'); }
+function banIP(){ const ip=prompt('IP para banir:'); alert('IP ' + ip + ' banido'); }
+function viewIPs(){ document.getElementById('adminContent').innerHTML = '<p>IPs conectados: (simulado)</p>'; }
+function confirmPix(){ alert('Pagamento confirmado - Envie comprovante para 5511951289502'); }
+EOF
+
+# data files
+cat > data/users.json << 'EOF'
+[]
+EOF
+cat > data/payments.json << 'EOF'
+[]
+EOF
+
+# Permissões
+chmod +x start-cloudflare.sh monitor-master.sh
+
+echo "[7/7] Instalação concluída com sucesso!"
 echo ""
-echo "══════════════════════════════════════════════════════════════"
-echo "✅ CL TECH OS v4.3 INSTALADO COM SUCESSO!"
-echo "══════════════════════════════════════════════════════════════"
-echo "🌐 Painel: http://localhost:3000"
-echo "🔧 Admin: http://localhost:3000/admin.html"
-echo "💻 Terminal: cltech"
-echo "══════════════════════════════════════════════════════════════"
+echo "✅ Sistema instalado em /opt/cltech"
+echo "🔑 Admin: admin / 123456"
+echo ""
+echo "Para iniciar:"
+echo "   cd /opt/cltech"
+echo "   bash start-cloudflare.sh"
+echo ""
+echo "Para monitor (apenas no mestre):"
+echo "   bash monitor-master.sh"
