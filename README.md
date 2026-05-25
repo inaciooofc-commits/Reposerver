@@ -9,7 +9,7 @@ Servidor local com painel web, integração com YouTube, música, controle de us
 - `monitor.sh` - abre o monitor de prompt com status em tempo real
 - `server.py` - servidor Flask com painel
 - `monitor.py` - monitor CLI com interface de terminal
-- `config.json` - configurações de tema e música de fundo
+- `config.json` - configurações de tema, música, Google OAuth e atualização automática pelo Git
 - `requirements.txt` - dependências Python
 
 ## Instalação no antiX
@@ -57,5 +57,8 @@ sudo bash /opt/reposerver/monitor.sh
 - controle de usuários e banimento
 - sistema de créditos e pagamento simulado
 - integração com YouTube para tocar músicas
+- login com Google via OAuth (quando configurado)
+- atualização do servidor a partir do Git pelo painel administrativo
+- atualização automática pelo Git ao iniciar (opcional)
 - monitor de prompt com logs em tempo real
 - armazenamento local de IPs e atividades

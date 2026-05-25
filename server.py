@@ -16,6 +16,7 @@ from flask import (
     session,
     url_for,
 )
+from authlib.integrations.flask_client import OAuth
 from yt_dlp import YoutubeDL
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -40,6 +41,11 @@ DEFAULT_CONFIG = {
     'theme_accent': '#7c4dff',
     'theme_second': '#ff6cd7',
     'theme_bg': '#090b1f',
+    'google_client_id': '',
+    'google_client_secret': '',
+    'google_redirect_uri': '',
+    'enable_google_login': False,
+    'auto_update_on_start': False,
 }
 
 DEFAULT_STATUS = {
@@ -83,6 +89,9 @@ LOGIN_TEMPLATE = '''<!doctype html>
       <input type="password" name="password" required>
       <button type="submit">Entrar</button>
     </form>
+    {% if google_enabled %}
+      <a href="{{ url_for('google_login') }}" class="button" style="margin-top:10px; display:block; background: linear-gradient(135deg,#4285F4,#34A853);">Entrar com Google</a>
+    {% endif %}
     <p class="anime-tag">Admin padrão: <strong>admin</strong> / <strong>admin123</strong></p>
   </div>
 </body>
@@ -247,6 +256,9 @@ ADMIN_TEMPLATE = '''<!doctype html>
       </div>
       <div style="display:flex; gap:12px; flex-wrap:wrap;">
         <a class="button" href="{{ url_for('dashboard') }}">Voltar ao Dashboard</a>
+        <form method="post" action="{{ url_for('git_update') }}" style="display:inline-block; margin:0;">
+          <button type="submit" class="button" style="background:linear-gradient(135deg, #facc15, #f97316);">Atualizar do Git</button>
+        </form>
         <a class="button" href="{{ url_for('logout') }}">Sair</a>
       </div>
     </div>
@@ -330,6 +342,15 @@ ADMIN_TEMPLATE = '''<!doctype html>
             <input type="text" name="background_music" value="{{ config.background_music }}" required>
             <label>Título do painel</label>
             <input type="text" name="panel_title" value="{{ config.panel_title }}" required>
+            <label>Habilitar login Google</label>
+            <select name="enable_google_login">
+              <option value="true" {% if config.enable_google_login %}selected{% endif %}>Sim</option>
+              <option value="false" {% if not config.enable_google_login %}selected{% endif %}>Não</option>
+            </select>
+            <label>Google Client ID</label>
+            <input type="text" name="google_client_id" value="{{ config.google_client_id }}">
+            <label>Google Client Secret</label>
+            <input type="text" name="google_client_secret" value="{{ config.google_client_secret }}">
             <button type="submit" class="primary">Salvar configurações</button>
           </form>
         </div>
@@ -405,6 +426,20 @@ ensure_files()
 config = load_json(CONFIG_FILE, DEFAULT_CONFIG)
 app.secret_key = config.get('secret_key', DEFAULT_CONFIG['secret_key'])
 
+oauth = OAuth(app)
+if config.get('google_client_id') and config.get('google_client_secret'):
+    oauth.register(
+        name='google',
+        client_id=config.get('google_client_id'),
+        client_secret=config.get('google_client_secret'),
+        access_token_url='https://oauth2.googleapis.com/token',
+        access_token_params=None,
+        authorize_url='https://accounts.google.com/o/oauth2/v2/auth',
+        authorize_params=None,
+        api_base_url='https://www.googleapis.com/oauth2/v1/',
+        client_kwargs={'scope': 'openid email profile'},
+    )
+
 server_status = load_json(STATUS_FILE, DEFAULT_STATUS)
 queue = server_status.get('queue', [])
 
@@ -431,6 +466,43 @@ def record_ip(username, ip):
     ip_log = load_json(IP_LOG_FILE, [])
     ip_log.append({'time': datetime.utcnow().isoformat(), 'user': username, 'ip': ip})
     write_json(IP_LOG_FILE, ip_log)
+
+
+def pull_from_git():
+    try:
+        result = subprocess.run(
+            ['git', 'pull'],
+            cwd=BASE_DIR,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        output = result.stdout.strip() or result.stderr.strip()
+        write_log(f'Git pull executado: returncode={result.returncode} output={output}')
+        return result.returncode == 0, output
+    except Exception as exc:
+        write_log(f'Falha ao atualizar do Git: {exc}')
+        return False, str(exc)
+
+
+def create_google_user(user_info):
+    users = load_users()
+    email = user_info.get('email')
+    if not email:
+        return None
+    username = email.split('@')[0]
+    if username in users:
+        return username
+    users[username] = {
+        'password': '',
+        'role': 'user',
+        'credits': 10,
+        'banned': False,
+        'email': email,
+    }
+    save_users(users)
+    write_log(f'Usuário Google criado: {username}')
+    return username
 
 
 def load_users():
@@ -603,7 +675,49 @@ def login():
             write_log(f'Login: {username} ({get_client_ip()})')
             return redirect(url_for('dashboard'))
 
-    return render_template_string(LOGIN_TEMPLATE, error=error, messages=get_flashed_messages())
+    return render_template_string(
+        LOGIN_TEMPLATE,
+        error=error,
+        messages=get_flashed_messages(),
+        google_enabled=bool(config.get('google_client_id') and config.get('google_client_secret') and config.get('enable_google_login')),
+    )
+
+
+@app.route('/login/google')
+def google_login():
+    if not (config.get('google_client_id') and config.get('google_client_secret') and config.get('enable_google_login')):
+        flash('Login com Google não está habilitado.')
+        return redirect(url_for('login'))
+    redirect_uri = url_for('google_callback', _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@app.route('/login/google/callback')
+def google_callback():
+    token = oauth.google.authorize_access_token()
+    user_info = oauth.google.get('userinfo').json()
+    if not user_info or not user_info.get('email'):
+        flash('Não foi possível obter dados do Google.')
+        return redirect(url_for('login'))
+    username = create_google_user(user_info)
+    if not username:
+        flash('Falha ao criar usuário Google.')
+        return redirect(url_for('login'))
+    session['username'] = username
+    session['role'] = load_users().get(username, {}).get('role', 'user')
+    add_active_user(username)
+    record_ip(username, get_client_ip())
+    write_log(f'Login Google: {username} ({get_client_ip()})')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/git-update', methods=['POST'])
+@login_required
+@admin_required
+def git_update():
+    success, message = pull_from_git()
+    flash('Atualização do Git concluída.' if success else f'Falha na atualização do Git: {message}')
+    return redirect(url_for('admin'))
 
 
 @app.route('/dashboard')
@@ -726,11 +840,29 @@ def admin_action():
     if action == 'update_config':
         background_music = request.form.get('background_music', '').strip()
         panel_title = request.form.get('panel_title', '').strip()
+        enable_google_login = request.form.get('enable_google_login', 'false') == 'true'
+        google_client_id = request.form.get('google_client_id', '').strip()
+        google_client_secret = request.form.get('google_client_secret', '').strip()
         if background_music:
             config['background_music'] = background_music
         if panel_title:
             config['panel_title'] = panel_title
+        config['enable_google_login'] = enable_google_login
+        config['google_client_id'] = google_client_id
+        config['google_client_secret'] = google_client_secret
         write_json(CONFIG_FILE, config)
+        if enable_google_login and google_client_id and google_client_secret:
+            oauth.register(
+                name='google',
+                client_id=google_client_id,
+                client_secret=google_client_secret,
+                access_token_url='https://oauth2.googleapis.com/token',
+                access_token_params=None,
+                authorize_url='https://accounts.google.com/o/oauth2/v2/auth',
+                authorize_params=None,
+                api_base_url='https://www.googleapis.com/oauth2/v1/',
+                client_kwargs={'scope': 'openid email profile'},
+            )
         write_log('Configurações atualizadas pelo administrador.')
         flash('Configurações atualizadas.')
         return redirect(url_for('admin'))
@@ -840,6 +972,12 @@ if __name__ == '__main__':
     ensure_files()
     config = load_json(CONFIG_FILE, DEFAULT_CONFIG)
     app.secret_key = config.get('secret_key', DEFAULT_CONFIG['secret_key'])
+    if config.get('auto_update_on_start'):
+        success, message = pull_from_git()
+        if success:
+            write_log('Atualização automática do Git concluída.')
+        else:
+            write_log(f'Falha na atualização automática do Git: {message}')
     server_status.update(load_json(STATUS_FILE, DEFAULT_STATUS))
     queue[:] = server_status.get('queue', [])
     save_status()

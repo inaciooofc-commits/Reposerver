@@ -9,7 +9,7 @@ echo "🔥 Instalando Reposerver completo no antiX..."
 
 sudo apt update -y
 sudo apt upgrade -y
-sudo apt install -y python3 python3-venv python3-pip curl rsync mpv ffmpeg
+sudo apt install -y git python3 python3-venv python3-pip curl rsync mpv ffmpeg
 
 sudo mkdir -p "$TARGET_DIR"
 sudo rsync -a --exclude='.git' "$SRC_DIR/" "$TARGET_DIR/"
@@ -29,7 +29,12 @@ if [ ! -f "config.json" ]; then
   "secret_key": "reposerver_anime_secret_2026",
   "theme_accent": "#7c4dff",
   "theme_second": "#ff6cd7",
-  "theme_bg": "#090b1f"
+  "theme_bg": "#090b1f",
+  "google_client_id": "",
+  "google_client_secret": "",
+  "google_redirect_uri": "",
+  "enable_google_login": false,
+  "auto_update_on_start": false
 }
 JSON
 fi
