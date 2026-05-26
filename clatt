@@ -1,0 +1,72 @@
+#!/bin/bash
+# CLATT: A command-line tool for project management.
+
+# Get the directory where the script is located
+BASE_DIR=$(dirname "$(realpath "$0")")
+
+# --- Helper Functions ---
+
+install_command() {
+    echo "Installing 'clatt' command..."
+    
+    # Destination for the command
+    INSTALL_PATH="/usr/local/bin/clatt"
+    
+    # Check for root privileges
+    if [[ $EUID -ne 0 ]]; then
+        echo "This needs to be run with root privileges. Please use 'sudo'."
+        exit 1
+    fi
+
+    # Create a symbolic link to make the script globally accessible
+    if ln -sf "$BASE_DIR/clatt" "$INSTALL_PATH"; then
+        echo "'clatt' installed successfully. You can now run it from anywhere."
+    else
+        echo "Installation failed. Please check permissions."
+        exit 1
+    fi
+}
+
+update_command() {
+    echo "Running the updater..."
+    # Run the python updater script
+    if python3 "$BASE_DIR/updater.py"; then
+        echo "Update check complete."
+    else
+        echo "Updater script failed."
+    fi
+}
+
+list_api_command() {
+    echo "Listing API routes..."
+    if python3 "$BASE_DIR/list_routes.py"; then
+        echo "API route listing complete."
+    else
+        echo "Failed to list API routes."
+    fi
+}
+
+# --- Main Logic ---
+
+# Default action is to update if no argument is provided
+if [ -z "$1" ]; then
+    update_command
+    exit 0
+fi
+
+# Parse command-line arguments
+case "$1" in
+    install)
+        install_command
+        ;;
+    update)
+        update_command
+        ;;
+    list-api)
+        list_api_command
+        ;;
+    *)
+        echo "Usage: clatt {install|update|list-api}"
+        exit 1
+        ;;
+esac
