@@ -1,5 +1,17 @@
 {
+  "name": "painel-ninja",
+  "version": "1.0.0",
+  "description": "Painel de controle para músicas e gerenciamento de usuários.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "prod": "pm2 start server.js --name painel-ninja"
+  },
   "dependencies": {
-    "express": "^5.2.1"
-  }
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "nunjucks": "^3.2.4"
+  },
+  "author": "",
+  "license": "ISC"
 }

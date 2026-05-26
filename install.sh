@@ -1,82 +1,37 @@
 #!/bin/bash
-set -e
 
-TARGET_USER=${SUDO_USER:-$(whoami)}
-TARGET_DIR=/opt/reposerver
-SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Script de Instalação para o Painel Ninja
 
-echo "🔥 Instalando Reposerver completo no antiX..."
+# 1. Atualizar os pacotes do sistema
+sudo apt-get update
 
-sudo apt update -y
-sudo apt upgrade -y
-sudo apt install -y git python3 python3-venv python3-pip curl rsync mpv ffmpeg
+# 2. Instalar o Node.js e o npm
+# O Antix é baseado no Debian, então estes comandos devem funcionar.
+# Se o Antix não tiver o curl, instale com: sudo apt-get install curl
+curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
 
-sudo mkdir -p "$TARGET_DIR"
-sudo rsync -a --exclude='.git' "$SRC_DIR/" "$TARGET_DIR/"
-sudo chown -R "$TARGET_USER":"$TARGET_USER" "$TARGET_DIR"
+# 3. Instalar o PM2 globalmente
+# O PM2 é um gerenciador de processos que manterá o painel online.
+sudo npm install -g pm2
 
-cd "$TARGET_DIR"
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+# 4. Instalar as dependências do projeto
+# Este comando lerá o package.json e instalará tudo o que o projeto precisa.
+npm install
 
-if [ ! -f "config.json" ]; then
-  cat > config.json <<'JSON'
-{
-  "background_music": "https://cdn.pixabay.com/download/audio/2021/10/19/audio_4a93807111.mp3?filename=anime-ambience-9832.mp3",
-  "panel_title": "Anime Pulse Server",
-  "secret_key": "reposerver_anime_secret_2026",
-  "theme_accent": "#7c4dff",
-  "theme_second": "#ff6cd7",
-  "theme_bg": "#090b1f",
-  "google_client_id": "",
-  "google_client_secret": "",
-  "google_redirect_uri": "",
-  "enable_google_login": false,
-  "auto_update_on_start": false
-}
-JSON
-fi
+# 5. Iniciar a aplicação com o PM2
+# O PM2 cuidará de reiniciar a aplicação se ela cair e a manterá rodando em segundo plano.
+pm2 start server.js --name "painel-ninja"
 
-if [ ! -f "users.json" ]; then
-  echo "{}" > users.json
-fi
+# 6. Salvar a configuração do PM2
+# Isso garante que o painel inicie automaticamente com o sistema.
+pm2 save
 
-if [ ! -f "payments.json" ]; then
-  echo "[]" > payments.json
-fi
+echo "\n\nPainel Ninja instalado com sucesso!"
+echo "Para gerenciar o painel, use os seguintes comandos:"
+echo "  pm2 status          # Ver o status"
+echo "  pm2 stop painel-ninja # Parar o painel"
+echo "  pm2 restart painel-ninja# Reiniciar o painel"
+echo "  pm2 logs painel-ninja # Ver os logs em tempo real"
 
-if [ ! -f "ip_log.json" ]; then
-  echo "[]" > ip_log.json
-fi
-
-if [ ! -f "status.json" ]; then
-  cat > status.json <<'JSON'
-{
-  "current": null,
-  "queue": [],
-  "active_users": [],
-  "recent_events": [],
-  "last_update": null,
-  "monitor_message": "Repositório pronto para anime streaming"
-}
-JSON
-fi
-
-if [ ! -f "server.log" ]; then
-  touch server.log
-fi
-
-chmod +x "$TARGET_DIR/start.sh"
-chmod +x "$TARGET_DIR/monitor.sh"
-
-IP=$(hostname -I | awk '{print $1}')
-
-echo "===================================="
-echo "✅ Instalação concluída no antiX"
-echo "Use: sudo bash $TARGET_DIR/start.sh"
-echo "Painel de monitor: sudo bash $TARGET_DIR/monitor.sh"
-echo "Acesse: http://$IP:5000"
-echo "Login padrão: admin / admin123"
-echo "===================================="
+echo "\nAcesse seu painel em: http://localhost:3000"

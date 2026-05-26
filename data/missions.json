@@ -1,0 +1,32 @@
+[
+    {
+        "id": "S001",
+        "rank": "S",
+        "description": "Infiltrar-se na base da Akatsuki e relatar seus planos.",
+        "reward": "5000 Ryo, 1000 XP"
+    },
+    {
+        "id": "A001",
+        "rank": "A",
+        "description": "Escolta de um VIP através de território inimigo.",
+        "reward": "1000 Ryo, 200 XP"
+    },
+    {
+        "id": "B001",
+        "rank": "B",
+        "description": "Recuperar um pergaminho roubado de um grupo de ninjas renegados.",
+        "reward": "500 Ryo, 100 XP"
+    },
+    {
+        "id": "C001",
+        "rank": "C",
+        "description": "Capturar o gato Tora, que escapou novamente.",
+        "reward": "100 Ryo, 20 XP"
+    },
+    {
+        "id": "D001",
+        "rank": "D",
+        "description": "Ajudar a limpar as ervas daninhas do jardim da academia.",
+        "reward": "50 Ryo, 5 XP"
+    }
+]

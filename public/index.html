@@ -1,0 +1,26 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+</head>
+<body>
+  <h1>Usuários</h1>
+  <ul id="user-list"></ul>
+
+  <script>
+    fetch('/api/users')
+      .then(response => response.json())
+      .then(users => {
+        const userList = document.getElementById('user-list');
+        for (const username in users) {
+          const listItem = document.createElement('li');
+          listItem.textContent = username;
+          userList.appendChild(listItem);
+        }
+      });
+  </script>
+</body>
+</html>
