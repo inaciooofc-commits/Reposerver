@@ -1,0 +1,8 @@
+#!/bin/bash
+# Shortcut script to run the updater
+
+# Get the directory where the script is located
+BASE_DIR=$(dirname "$(realpath "$0")")
+
+# Run the python updater script
+"$BASE_DIR/updater.py"

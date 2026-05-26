@@ -10,7 +10,7 @@ from yt_dlp import YoutubeDL
 
 # Centralized application configuration and utilities
 from config import AppConfig
-from utils import ensure_initial_files, load_json, save_status, write_log, pull_from_git, DEFAULT_STATUS
+from utils import ensure_initial_files, load_json, save_status, write_log, pull_from_git, STATUS_FILE, DEFAULT_STATUS
 
 # --- Flask App Initialization ---
 
@@ -98,11 +98,19 @@ def create_app():
         from routes.dashboard import dashboard_bp
         from routes.admin import admin_bp
         from routes.api import api_bp
+        from routes.missions import missions_bp
+        from routes.shop import shop_bp
+        from routes.setup import register_setup_routes
 
         app.register_blueprint(auth_bp)
         app.register_blueprint(dashboard_bp)
         app.register_blueprint(admin_bp)
         app.register_blueprint(api_bp)
+        app.register_blueprint(missions_bp)
+        app.register_blueprint(shop_bp)
+
+        # Register setup routes and before_request handler
+        register_setup_routes(app)
 
     return app
 

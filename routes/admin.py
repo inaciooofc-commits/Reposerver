@@ -26,6 +26,9 @@ class SafeUser:
         self.name = name
         self.role = data.get('role', 'user')
         self.credits = data.get('credits', 0)
+        self.gold = data.get('gold', 0)
+        self.level = data.get('level', 1)
+        self.xp = data.get('xp', 0)
         self.banned = data.get('banned', False)
 
 # --- Admin Panel Route ---
@@ -70,7 +73,15 @@ def handle_admin_action_create_user(form, users):
         flash('Admins devem começar com "admin@".', 'warning')
         return
 
-    users[username] = {'password': generate_password_hash(password), 'role': role, 'credits': 0, 'banned': False}
+    users[username] = {
+        'password': generate_password_hash(password), 
+        'role': role, 
+        'credits': 0, 
+        'gold': 100, # Starting gold
+        'level': 1,
+        'xp': 0,
+        'banned': False
+    }
     save_users(users)
     write_log(f'Novo usuário criado: {username} por {session.get("username")}')
     flash('Usuário criado com sucesso.', 'success')

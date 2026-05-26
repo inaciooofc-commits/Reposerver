@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Nomeação do Hokage - Configuração</title>
+  <title>{{ panel_title }} - Instalação</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
@@ -13,107 +13,88 @@
       --konoha-blue: #0d1a3e;
       --dark-blue: #060c1c;
       --text-light: #e0e0e0;
-      --border-color: rgba(240, 109, 13, 0.4);
-      --shadow-color: rgba(240, 109, 13, 0.5);
+      --border-color: rgba(240, 109, 13, 0.25);
+      --shadow-color: rgba(240, 109, 13, 0.35);
     }
     body {
       margin: 0;
-      min-height: 100vh;
+      background-color: var(--dark-blue);
+      background-image: url('{{ background_image }}');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: var(--text-light);
+      font-family: 'Roboto', sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
-      background-color: var(--dark-blue);
-      background-image: url('https://i.imgur.com/K5b0x1j.jpg');
-      background-size: cover;
-      background-position: center;
-      color: var(--text-light);
-      font-family: 'Roboto', sans-serif;
+      min-height: 100vh;
     }
     .card {
-      position: relative;
-      width: min(420px, 95vw);
-      background: rgba(13, 26, 62, 0.9);
+      width: min(400px, 90vw);
+      background: rgba(13, 26, 62, 0.85);
       border: 1px solid var(--border-color);
-      border-radius: 20px;
-      box-shadow: 0 0 70px var(--shadow-color);
+      border-radius: 16px;
       padding: 32px;
       backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
     h1 {
-      margin: 0 0 16px;
-      text-align: center;
-      font-size: 2.2rem;
+      margin: 0 0 24px;
+      font-size: 2rem;
       color: var(--naruto-orange);
-      text-shadow: 0 0 12px var(--shadow-color);
-    }
-    p {
       text-align: center;
-      color: var(--text-light);
-      margin-bottom: 24px;
-      line-height: 1.6;
+      text-shadow: 0 0 10px var(--shadow-color);
     }
-    label {
-      display: block;
-      margin: 16px 0 8px;
-      color: var(--text-light);
-      font-weight: 700;
-    }
-    input {
+    .form-button {
       width: 100%;
       padding: 14px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--naruto-orange), #ff5722);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 16px;
+      font-size: 1rem;
+    }
+    .form-button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px var(--shadow-color); }
+    input {
+      width: 100%;
+      padding: 12px;
       border-radius: 8px;
       border: 1px solid var(--border-color);
       background: var(--konoha-blue);
       color: var(--text-light);
       font-size: 1rem;
-      transition: all 0.3s ease;
+      box-sizing: border-box;
     }
-    input:focus {
-      outline: none;
-      border-color: var(--naruto-orange);
-      box-shadow: 0 0 15px var(--shadow-color);
-    }
-    .submit-button {
-      width: 100%;
-      margin-top: 28px;
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #22c55e, #14b8a6);
-      color: #fff;
-      font-weight: 700;
-      font-size: 1.1rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .submit-button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3);
-    }
-    .error {
-      margin-bottom: 16px;
+    .notice {
       padding: 12px;
       border-radius: 8px;
-      background: rgba(255, 82, 82, 0.2);
-      color: #ffcdd2;
-      border: 1px solid rgba(255, 82, 82, 0.5);
       text-align: center;
+      margin-bottom: 16px;
+      border: 1px solid transparent;
     }
+    .notice.danger { background-color: rgba(255, 70, 70, 0.15); border-color: rgba(255, 100, 100, 0.3); color: #ffcdd2; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Decreto do Primeiro Hokage</h1>
-    <p>A Vila precisa de um líder. Crie sua conta de Administrador (Kage) para proteger e gerenciar este servidor.</p>
-    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <h1>Ativação do Painel</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="notice {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <form method="post">
-      <label for="username">Seu Nome de Kage</label>
-      <input type="text" id="username" name="username" value="admin" required autofocus>
-      <label for="password">Sua Senha Mestra</label>
-      <input type="password" id="password" name="password" required>
-      <label for="confirm_password">Confirme a Senha</label>
-      <input type="password" id="confirm_password" name="confirm_password" required>
-      <button type="submit" class="submit-button">Assumir o Posto</button>
+      <input type="password" name="master_key" placeholder="Digite a chave de ativação" required>
+      <button type="submit" class="form-button">Ativar</button>
     </form>
   </div>
 </body>

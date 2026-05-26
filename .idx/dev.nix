@@ -1,4 +1,3 @@
-ssh-keygen -t ed25519 -C "inaciooofc@gmail.com"
 # To learn more about how to use Nix to configure your environment
 # see: https://firebase.google.com/docs/studio/customize-workspace
 { pkgs, ... }: {
@@ -54,4 +53,4 @@ ssh-keygen -t ed25519 -C "inaciooofc@gmail.com"
     };
   };
 }
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOsrzZBZzZkeLfkW01r3TrVUOVOLWFdxphblRi6JdFyL inaciooofc@gmail.com
+

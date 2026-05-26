@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title }} - Painel Ninja</title>
+  <title>{{ panel_title }} - Painel Ninja</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
@@ -15,159 +15,126 @@
       --text-light: #e0e0e0;
       --border-color: rgba(240, 109, 13, 0.25);
       --shadow-color: rgba(240, 109, 13, 0.35);
+      --xp-bar-bg: #333;
+      --xp-bar-fill: #4caf50;
+      --status-playing: #4caf50;
+      --status-error: #f44336;
     }
     body {
       margin: 0;
       background-color: var(--dark-blue);
-      background-image: url('https://i.imgur.com/vHqVwM8.jpg');
+      background-image: url('{{ background_image }}');
       background-size: cover;
       background-position: center;
       background-attachment: fixed;
       color: var(--text-light);
       font-family: 'Roboto', sans-serif;
     }
-    .page {
-      width: min(1200px, 98vw);
-      margin: 24px auto;
-      padding: 16px;
-    }
+    .page { width: min(1200px, 98vw); margin: 24px auto; padding: 16px; }
     header {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 16px;
-      background: rgba(6, 12, 28, 0.7);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      backdrop-filter: blur(10px);
-      margin-bottom: 24px;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 16px; padding: 16px; background: rgba(6, 12, 28, 0.7);
+      border: 1px solid var(--border-color); border-radius: 16px;
+      backdrop-filter: blur(10px); margin-bottom: 24px;
     }
-    h1 {
-      margin: 0;
-      font-size: clamp(1.8rem, 3vw, 2.5rem);
-      color: var(--naruto-orange);
-      text-shadow: 0 0 10px var(--shadow-color);
-    }
+    h1 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.5rem); color: var(--naruto-orange); text-shadow: 0 0 10px var(--shadow-color); }
     .card {
-      background: rgba(13, 26, 62, 0.8);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      padding: 24px;
-      backdrop-filter: blur(8px);
-      transition: all 0.3s ease;
+      background: rgba(13, 26, 62, 0.8); border: 1px solid var(--border-color);
+      border-radius: 16px; padding: 24px; backdrop-filter: blur(8px); transition: all 0.3s ease;
     }
-    .card:hover {
-      border-color: rgba(240, 109, 13, 0.5);
-      box-shadow: 0 0 25px var(--shadow-color);
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 24px;
-    }
+    .card:hover { border-color: rgba(240, 109, 13, 0.5); box-shadow: 0 0 25px var(--shadow-color); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
     .full-width { grid-column: 1 / -1; }
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: 12px 20px;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--naruto-orange), #ff5722);
-      color: #fff;
-      text-decoration: none;
-      font-weight: 700;
-      cursor: pointer;
-      position: relative;
-      overflow: hidden;
-      transition: all 0.2s ease;
+    .button, .form-button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 12px 20px; border: 1px solid transparent; border-radius: 8px;
+      background: linear-gradient(135deg, var(--naruto-orange), #ff5722); color: #fff;
+      text-decoration: none; font-weight: 700; cursor: pointer; position: relative;
+      overflow: hidden; transition: all 0.2s ease;
     }
-    .button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(240, 109, 13, 0.3);
-    }
-    .button.secondary {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-    .button.secondary:hover {
-      background: rgba(255, 255, 255, 0.2);
-      box-shadow: none;
-    }
-    input, select, textarea {
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
-      background: var(--konoha-blue);
-      color: var(--text-light);
-      font-size: 1rem;
-      margin-top: 8px;
-    }
+    .form-button { width: 100%; margin-top: 12px; }
+    .button:hover, .form-button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(240, 109, 13, 0.3); }
+    .button.secondary { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
+    .button.secondary:hover { background: rgba(255, 255, 255, 0.2); box-shadow: none; }
+    input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--konoha-blue); color: var(--text-light); font-size: 1rem; margin-top: 8px; box-sizing: border-box; }
     h2 { margin-top: 0; color: var(--naruto-orange); }
-    .notice {
-      padding: 16px;
-      border-radius: 8px;
-      background: rgba(6, 12, 28, 0.5);
-      text-align: center;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-    }
-    th, td {
-      padding: 12px;
-      border-bottom: 1px solid var(--border-color);
-      text-align: left;
-    }
+    .notice { padding: 16px; border-radius: 8px; background: rgba(6, 12, 28, 0.5); text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { padding: 12px; border-bottom: 1px solid var(--border-color); text-align: left; }
     th { color: #f0a040; }
+    .xp-bar-container { background-color: var(--xp-bar-bg); border-radius: 4px; overflow: hidden; height: 10px; margin-top: 4px; }
+    .xp-bar-fill { 
+        background-color: var(--xp-bar-fill);
+        height: 100%;
+        transition: width 0.5s ease;
+        width: var(--xp-percentage, 0%);
+    }
+    .status-dot {
+        display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px;
+        background-color: var(--status-playing);
+    }
+    .status-dot.error { background-color: var(--status-error); }
   </style>
 </head>
 <body>
   <div class="page">
     <header>
-      <h1>{{ title }}</h1>
-      <div style="display:flex; gap:12px; flex-wrap:wrap;">
-        {% if role == 'admin' %}
-          <a class="button secondary" href="{{ url_for('admin') }}">Conselho Kage</a>
-        {% endif %}
-        <a class="button secondary" href="{{ url_for('monitor_web') }}">Inteligência ANBU</a>
-        <a class="button" href="{{ url_for('logout') }}">Terminar Missão</a>
-      </div>
+        <h1>{{ panel_title }}</h1>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <form method="post" action="{{ url_for('dashboard_bp.apply_for_staff') }}" style="margin:0;">
+                <button type="submit" class="button secondary">Virar Jounin</button>
+            </form>
+            <a class="button secondary" href="{{ url_for('missions_bp.list_missions') }}">Quadro de Missões</a>
+            <a class="button secondary" href="{{ url_for('shop_bp.list_items') }}">Loja Ninja</a>
+            {% if user.role == 'admin' %}<a class="button secondary" href="{{ url_for('admin_bp.admin') }}">Conselho Kage</a>{% endif %}
+            <a class="button" href="{{ url_for('auth_bp.logout') }}">Terminar Missão</a>
+        </div>
     </header>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="full-width" style="margin-bottom: 24px;">
+          {% for category, message in messages %}
+            <div class="notice" style="background: rgba(13, 26, 62, 0.9); border: 1px solid var(--naruto-orange);">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
 
     <div class="grid">
       <div class="card full-width">
         <h2>Invocar Jutsu Sonoro</h2>
-        <form method="post" action="{{ url_for('play') }}">
+        <form method="post" action="{{ url_for('api_bp.play') }}">
           <input type="text" name="youtube_url" placeholder="Cole o pergaminho do YouTube aqui..." required>
-          <button type="submit" class="button" style="width:100%; margin-top:12px;">Tocar Música</button>
+          <button type="submit" class="form-button">Tocar Música</button>
         </form>
       </div>
 
       <div class="card">
         <h2>Agora na Vila</h2>
         {% if current %}
-          <p><strong>Missão Atual:</strong> {{ current.title }}</p>
-          <p><strong>Ninja Responsável:</strong> {{ current.requestor }}</p>
-          <p><strong>Status:</strong> Em andamento</p>
+            <p><strong>Missão Atual:</strong> {{ current.title }}</p>
+            <p><strong>Ninja Responsável:</strong> {{ current.requestor }}</p>
+            <p><strong>Status:</strong> 
+                <span class="status-dot {{ 'error' if current.status == 'error' }}"></span>
+                {{ 'Em andamento' if current.status == 'playing' else 'Falhou' }}
+            </p>
         {% else %}
           <div class="notice">O silêncio reina. Invoque uma música para iniciar a missão.</div>
         {% endif %}
       </div>
 
       <div class="card">
-        <h2>Lista de Missões (Fila)</h2>
+        <h2>Próximas Missões</h2>
         {% if queue|length %}
           <table>
             <thead><tr><th>Missão</th><th>Ninja</th></tr></thead>
             <tbody>
               {% for item in queue %}
-                <tr><td>{{ item.title | truncate(40) }}</td><td>{{ item.requestor }}</td></tr>
+                <tr><td>{{ item.url | truncate(40) }}</td><td>{{ item.requestor }}</td></tr>
               {% endfor %}
             </tbody>
           </table>
@@ -180,21 +147,26 @@
         <h2>Informações do Ninja</h2>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
           <div>
-            <p><strong>Nome:</strong> {{ username }}</p>
-            <p><strong>Rank:</strong> {{ role }}</p>
-            <p><strong>Chakra (Créditos):</strong> {{ credits }}</p>
+            <p><strong>Nome:</strong> {{ user.username }}</p>
+            <p><strong>Rank:</strong> {{ user.role }}</p>
+            <p><strong>Créditos:</strong> {{ user.credits }}</p>
+            <p><strong>Ryo (Gold):</strong> {{ user.gold }}</p>
           </div>
           <div>
-            <p><strong>Ninjas Ativos:</strong> {{ active_count }}</p>
-            <p><strong>Último Relatório:</strong> {{ last_update or 'N/A' }}</p>
-            <p><strong>IP de Acesso:</strong> {{ client_ip }}</p>
+            <p><strong>Nível:</strong> {{ user.level }}</p>
+            <p><strong>Experiência:</strong> {{ user.xp }} / {{ user.required_xp }}</p>
+            <div class="xp-bar-container">
+              <div class="xp-bar-fill" style="--xp-percentage: {{ user.xp_percentage }}%;"></div>
+            </div>
           </div>
         </div>
-        <h3 style="margin-top:24px; color:var(--naruto-orange);">Música Ambiente da Vila</h3>
-        <audio controls loop style="width:100%; margin-top:8px;">
-          <source src="{{ background_music }}" type="audio/mpeg">
-          Seu navegador não suporta o jutsu de áudio.
-        </audio>
+        <h3 style="margin-top:24px; color:var(--naruto-orange);">Música Ambiente</h3>
+        {% if background_music %}
+          <audio controls loop style="width:100%; margin-top:8px;">
+            <source src="{{ background_music }}" type="audio/mpeg">
+            Seu navegador não suporta o jutsu de áudio.
+          </audio>
+        {% endif %}
       </div>
     </div>
   </div>

@@ -19,6 +19,8 @@ STATUS_FILE = os.path.join(BASE_DIR, 'status.json')
 LOG_FILE = os.path.join(BASE_DIR, 'server.log')
 CENTRAL_LOG = os.path.join(BASE_DIR, 'central.log')
 CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
+MISSIONS_FILE = os.path.join(BASE_DIR, 'missions.json')
+SHOP_FILE = os.path.join(BASE_DIR, 'shop.json')
 
 DEFAULT_STATUS = {
     'current': None,
@@ -54,6 +56,8 @@ def ensure_initial_files():
     load_json(PAYMENTS_FILE, [])
     load_json(IP_LOG_FILE, [])
     load_json(STATUS_FILE, DEFAULT_STATUS)
+    load_json(MISSIONS_FILE, {"daily_missions": [], "special_missions": []})
+    load_json(SHOP_FILE, {"items": []})
     if not os.path.exists(LOG_FILE):
         open(LOG_FILE, 'a', encoding='utf-8').close()
 
@@ -128,6 +132,14 @@ def save_users(users):
     """Saves the user data to users.json."""
     write_json(DATA_FILE, users)
 
+def load_missions():
+    """Loads mission data from missions.json."""
+    return load_json(MISSIONS_FILE, {"daily_missions": [], "special_missions": []})
+
+def load_shop():
+    """Loads shop data from shop.json."""
+    return load_json(SHOP_FILE, {"items": []})
+
 def add_active_user(username):
     """Adds a user to the active user list in the status."""
     status = load_json(STATUS_FILE, DEFAULT_STATUS)
@@ -156,6 +168,9 @@ def create_google_user(user_info):
         'password': '',
         'role': 'user',
         'credits': 10,
+        'gold': 100,
+        'level': 1,
+        'xp': 0,
         'banned': False,
         'email': email,
     }

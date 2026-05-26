@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} - Painel Ninja</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --naruto-orange: #f06d0d;
+      --konoha-blue: #0d1a3e;
+      --dark-blue: #060c1c;
+      --text-light: #e0e0e0;
+      --border-color: rgba(240, 109, 13, 0.25);
+      --shadow-color: rgba(240, 109, 13, 0.35);
+      --gold-color: #ffd700;
+    }
+    body { background-color: var(--dark-blue); background-image: url('{{ bg }}'); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-light); font-family: 'Roboto', sans-serif; margin: 0; }
+    .page { width: min(1200px, 98vw); margin: 24px auto; padding: 16px; }
+    header {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 16px; padding: 16px; background: rgba(6, 12, 28, 0.7);
+      border: 1px solid var(--border-color); border-radius: 16px;
+      backdrop-filter: blur(10px); margin-bottom: 24px;
+    }
+    h1 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.5rem); color: var(--naruto-orange); text-shadow: 0 0 10px var(--shadow-color); }
+    .card {
+      background: rgba(13, 26, 62, 0.8); border: 1px solid var(--border-color);
+      border-radius: 16px; padding: 24px; backdrop-filter: blur(8px);
+    }
+    .button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 12px 20px; border: 1px solid transparent; border-radius: 8px;
+      background: linear-gradient(135deg, var(--naruto-orange), #ff5722); color: #fff;
+      text-decoration: none; font-weight: 700; cursor: pointer; transition: all 0.2s ease;
+    }
+    .button.secondary { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
+    .item-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+    .item-card {
+      background: rgba(6, 12, 28, 0.6); border: 1px solid var(--border-color);
+      border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .item-price { font-weight: bold; color: var(--gold-color); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>{{ title }}</h1>
+      <div>
+          <span style="margin-right: 16px;">Seu Ryo: <strong style="color: var(--gold-color)">{{ user_gold }}</strong></span>
+          <a class="button" href="{{ url_for('dashboard_bp.dashboard') }}">Voltar ao Painel</a>
+      </div>
+    </header>
+
+    <div class="card">
+        <h2>Itens Disponíveis</h2>
+        <div class="item-grid">
+            {% for item in items %}
+                <div class="item-card">
+                    <div>
+                        <h3>{{ item.name }}</h3>
+                        <p style="opacity:0.8; min-height:60px;">{{ item.description }}</p>
+                        <p class="item-price">Preço: {{ item.price }} Ryo</p>
+                    </div>
+                    <form method="post" action="{{ url_for('.buy_item', item_id=item.id) }}">
+                        <button class="button secondary" type="submit" {% if user_gold < item.price %}disabled{% endif %}>
+                            Comprar
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <p>A loja está vazia. Volte mais tarde!</p>
+            {% endfor %}
+        </div>
+    </div>
+
+  </div>
+</body>
+</html>
