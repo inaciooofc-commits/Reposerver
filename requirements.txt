@@ -1,6 +1,0 @@
-Flask>=2.3
-yt-dlp>=2025.1.0
-rich>=14.0
-authlib>=1.2
-requests>=2.32.0
-gunicorn>=21.0.0
