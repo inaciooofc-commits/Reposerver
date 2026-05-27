@@ -1,52 +1,52 @@
 #!/bin/bash
 
-# Script de Inicialização para o Servidor de Repositório
+# ==============================================================================
+# ||          Script de Inicialização Robusto para o RepoServer             ||
+# ==============================================================================
 
 # --- Configurações ---
 APP_NAME="reposerver"
-ROOT_DIR=$(dirname "$0") # Diretório onde o script está
+
+# Obtém o caminho real e absoluto do diretório onde o script está.
+# Isso garante que ele funcione independentemente de onde for chamado.
+ROOT_DIR=$(dirname "$(realpath "$0")")
+
+VENV_DIR="$ROOT_DIR/venv"
 PID_FILE="/var/run/$APP_NAME.pid"
 HOST="0.0.0.0"
 PORT="5000"
-
-# Para SocketIO com Gunicorn, precisamos usar os workers do eventlet
 WORKER_CLASS="eventlet"
-# Número de workers: 2 por núcleo de CPU é um bom começo
-# Use `nproc` para obter o número de núcleos
 WORKERS=$(($(nproc) * 2))
-
-# Módulo e aplicação Flask (arquivo:aplicativo)
-# Nosso arquivo principal é run.py e a variável é 'app'
 APP_MODULE="run:app"
 
-# --- Validação ---
+# --- Execução ---
 echo "Iniciando o servidor $APP_NAME..."
+echo "Diretório do projeto: $ROOT_DIR"
 
-# Navega para o diretório do projeto
-cd "$ROOT_DIR"
-echo "Diretório de trabalho: $(pwd)"
+# O caminho para o executável do Gunicorn DENTRO do nosso ambiente virtual.
+GUNICORN_EXEC="$VENV_DIR/bin/gunicorn"
 
-# Verifica se Gunicorn está instalado
-if ! command -v gunicorn &> /dev/null
-then
-    echo "Erro: gunicorn não foi encontrado no PATH."
-    echo "Por favor, instale as dependências com: pip install -r requirements.txt"
+# Muda para o diretório raiz do projeto. Se falhar, o script para.
+cd "$ROOT_DIR" || exit 1
+
+# --- Validação Crucial ---
+# Verifica se o executável do Gunicorn específico do nosso venv existe.
+if [ ! -f "$GUNICORN_EXEC" ]; then
+    echo "[ERRO] O executável do Gunicorn não foi encontrado em: $GUNICORN_EXEC"
+    echo "[AÇÃO] Isso geralmente significa que o ambiente virtual não foi criado ou as dependências não foram instaladas."
+    echo "[AÇÃO] Por favor, execute o script 'sudo bash install.sh' para corrigir a instalação."
     exit 1
 fi
 
-# --- Execução ---
+# --- Início do Servidor ---
 echo "Host: $HOST"
 echo "Porta: $PORT"
 echo "Workers: $WORKERS"
 echo "Worker Class: $WORKER_CLASS"
 
-# Inicia o Gunicorn
-# --daemon: roda em background
-# --pid: especifica o arquivo de PID, crucial para o supervisor
-# --bind: define o host e porta
-# --workers: número de processos worker
-# --worker-class: tipo de worker (essencial para SocketIO)
-exec gunicorn \
+# O comando 'exec' substitui o processo atual (o shell) pelo gunicorn.
+# Isso é uma prática recomendada para scripts de inicialização usados pelo systemd.
+exec "$GUNICORN_EXEC" \
     --pid "$PID_FILE" \
     --bind "$HOST:$PORT" \
     --workers "$WORKERS" \

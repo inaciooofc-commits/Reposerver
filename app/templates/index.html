@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anti-X Panel - Reposerver</title>
+    <title>Zarcos - Reposerver</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.min.js"></script>
@@ -22,7 +22,7 @@
 
     <header class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-3xl font-bold text-white">Anti-X Panel</h1>
+            <h1 class="text-3xl font-bold text-white">Zarcos</h1>
             <p class="text-gray-400">Dashboard de Monitoramento e Controle</p>
         </div>
         <div class="flex items-center space-x-2">
@@ -65,7 +65,6 @@
             <button @click="activeTab = 'processos'" :class="{ 'border-indigo-500 text-indigo-400': activeTab === 'processos', 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500': activeTab !== 'processos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Processos</button>
             <button @click="activeTab = 'docker'" :class="{ 'border-indigo-500 text-indigo-400': activeTab === 'docker', 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500': activeTab !== 'docker' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Docker</button>
             <button @click="activeTab = 'terminal'" :class="{ 'border-indigo-500 text-indigo-400': activeTab === 'terminal', 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500': activeTab !== 'terminal' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Terminal</button>
-            <button @click="activeTab = 'controles'" :class="{ 'border-indigo-500 text-indigo-400': activeTab === 'controles', 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500': activeTab !== 'controles' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Controles</button>
         </nav>
     </div>
 
@@ -136,17 +135,6 @@
                 <div id="terminal"></div>
             </div>
         </div>
-
-        <!-- Controles -->
-        <div x-show="activeTab === 'controles'">
-            <h3 class="text-xl font-bold mb-4">Controles do Serviço</h3>
-            <div class="flex space-x-4">
-                <button @click="controlService('reiniciar')" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">Reiniciar Serviço</button>
-                <button @click="controlService('parar')" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Parar Serviço</button>
-                <button @click="controlService('iniciar')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Iniciar Serviço</button>
-            </div>
-            <div x-show="controlResponse" class="mt-4 p-3 rounded" :class="controlStatus === 'sucesso' ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'" x-text="controlResponse"></div>
-        </div>
     </div>
 
 <script>
@@ -158,8 +146,6 @@
             processes: [],
             containers: [],
             activeTab: 'processos',
-            controlResponse: null,
-            controlStatus: null,
             term: null,
 
             init() {
@@ -212,23 +198,6 @@
                     this.socket.emit('terminal_entrada', { data });
                 });
                 this.term.write('Bem-vindo ao terminal interativo!\r\n$ ');
-            },
-
-            async controlService(action) {
-                try {
-                    const response = await fetch('/api/custom/servico/controle', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ acao: action })
-                    });
-                    const data = await response.json();
-                    this.controlStatus = data.status;
-                    this.controlResponse = data.mensagem || data.erro;
-                } catch (err) {
-                    this.controlStatus = 'falha';
-                    this.controlResponse = 'Erro de comunicação com a API.';
-                }
-                setTimeout(() => this.controlResponse = null, 5000);
             }
         }
     }
