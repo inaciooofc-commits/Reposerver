@@ -38,7 +38,7 @@ install_platform_auto() {
     echo "[3/6] Configurando diretório de instalação em $APP_DIR..." | tee -a "$LOG_FILE"
     sudo mkdir -p "$APP_DIR"
     # Copia os arquivos da aplicação para o diretório de destino
-    sudo cp -r app config cpp_engine frontend scripts services data docs reposerver_main.py requirements.txt reposerver_service_script "$APP_DIR/"
+    sudo cp -r app config cpp_engine frontend scripts services data docs reposerver_main.py reposerver_service_script "$APP_DIR/"
     sudo chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
 
     echo "[4/6] Criando ambiente virtual Python e instalando dependências..." | tee -a "$LOG_FILE"

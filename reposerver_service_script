@@ -10,96 +10,105 @@
 ### END INIT INFO
 
 # ====================[ CONFIGURAÇÃO ]====================
-# Diretório principal da aplicação
 APP_DIR="/opt/reposerver"
-
-# Usuário de sistema dedicado para rodar a aplicação (NÃO use root)
 APP_USER="reposerver"
-
-# Nome do serviço
 NAME="reposerver"
-
-# Caminho para o ambiente virtual e executável do Gunicorn
 VENV_DIR="$APP_DIR/venv"
 GUNICORN_EXEC="$VENV_DIR/bin/gunicorn"
-
-# Ponto de entrada da aplicação Flask (formato: nome_do_arquivo:instancia_do_app)
 APP_MODULE="reposerver_main:app"
-
-# Arquivo para armazenar o ID do processo (PID)
 PIDFILE="/var/run/$NAME.pid"
-
-# Diretório e arquivo de log
 LOG_DIR="$APP_DIR/logs"
-LOGFILE="$LOG_DIR/gunicorn.log"
-
-# Configurações do Gunicorn
-# O número de workers é geralmente (2 * número de cores da CPU) + 1
-WORKERS=3 
-# Usar 'eventlet' é crucial para WebSockets e operações assíncronas
+GUNICORN_LOGFILE="$LOG_DIR/gunicorn.log"
+DEBUG_LOGFILE="/tmp/reposerver_debug.log"
+WORKERS=3
 WORKER_CLASS="eventlet"
 HOST="0.0.0.0"
 PORT="5000"
-GUNICORN_ARGS="--workers $WORKERS --worker-class $WORKER_CLASS --bind $HOST:$PORT --log-file $LOGFILE"
+GUNICORN_ARGS="--workers $WORKERS --worker-class $WORKER_CLASS --bind $HOST:$PORT --log-file $GUNICORN_LOGFILE"
 
-# Carrega funções LSB (Linux Standard Base)
 . /lib/lsb/init-functions
 
 # ====================[ FUNÇÕES DO SERVIÇO ]====================
 
-# Garante que os diretórios necessários existam e tenham as permissões corretas
 prepare_dirs() {
-    mkdir -p $LOG_DIR
-    chown -R $APP_USER:$APP_USER $LOG_DIR
+    echo "DEBUG: Running prepare_dirs" >> $DEBUG_LOGFILE
+    mkdir -p "$LOG_DIR"
+    echo "DEBUG: Executing chown on $LOG_DIR" >> $DEBUG_LOGFILE
+    chown -R "$APP_USER":"$APP_USER" "$LOG_DIR"
+    ls -ld "$LOG_DIR" >> $DEBUG_LOGFILE
+    
     mkdir -p /var/run
-    chown -R $APP_USER:$APP_USER /var/run
+    echo "DEBUG: Executing chown on /var/run" >> $DEBUG_LOGFILE
+    chown -R "$APP_USER":"$APP_USER" /var/run
+    ls -ld /var/run >> $DEBUG_LOGFILE
 }
 
 start() {
+    echo "====================[ NEW START ATTEMPT ]====================" > $DEBUG_LOGFILE
+    echo "Timestamp: $(date)" >> $DEBUG_LOGFILE
+    echo "Running as user: $(whoami)" >> $DEBUG_LOGFILE
+    
+    echo "
+[DEBUG] Checking permissions before starting:" >> $DEBUG_LOGFILE
+    ls -ld "$APP_DIR" >> $DEBUG_LOGFILE
+    ls -lR "$APP_DIR" >> $DEBUG_LOGFILE
+    
     prepare_dirs
+
+    echo "
+[DEBUG] Final check of variables:" >> $DEBUG_LOGFILE
+    echo "GUNICORN_EXEC: $GUNICORN_EXEC" >> $DEBUG_LOGFILE
+    ls -l "$GUNICORN_EXEC" >> $DEBUG_LOGFILE
+    echo "APP_USER: $APP_USER" >> $DEBUG_LOGFILE
+    echo "PIDFILE: $PIDFILE" >> $DEBUG_LOGFILE
+    echo "GUNICORN_LOGFILE: $GUNICORN_LOGFILE" >> $DEBUG_LOGFILE
     
     if [ -f $PIDFILE ]; then
         log_daemon_msg "$NAME já está em execução (PID: $(cat $PIDFILE))"
+        echo "DEBUG: Service already running." >> $DEBUG_LOGFILE
         return 1
     fi
     
     log_daemon_msg "Iniciando $NAME"
     
-    cd $APP_DIR || return 1
+    cd "$APP_DIR" || { echo "DEBUG: Failed to cd to $APP_DIR" >> $DEBUG_LOGFILE; return 1; }
     
-    start-stop-daemon --start --quiet --pidfile $PIDFILE --make-pidfile \
-        --background --chuid $APP_USER --chdir $APP_DIR --startas /bin/bash -- \
-        -c "exec $GUNICORN_EXEC $APP_MODULE $GUNICORN_ARGS >> $LOGFILE 2>&1"
+    echo "
+[DEBUG] About to execute start-stop-daemon..." >> $DEBUG_LOGFILE
+    
+    start-stop-daemon --start --quiet --pidfile "$PIDFILE" --make-pidfile \
+        --background --chuid "$APP_USER" --chdir "$APP_DIR" --startas /bin/bash -- \
+        -c "exec $GUNICORN_EXEC $APP_MODULE $GUNICORN_ARGS >> $GUNICORN_LOGFILE 2>&1"
 
-    # Aguarda um pouco e verifica se o processo realmente iniciou
     sleep 2
     if ! status > /dev/null; then
         log_end_msg 1
-        log_failure_msg "Falha ao iniciar. Verifique os logs em $LOGFILE e $APP_DIR/logs/reposerver.log"
+        log_failure_msg "Falha ao iniciar. Verifique os logs em $GUNICORN_LOGFILE e o log de depuração em $DEBUG_LOGFILE"
+        echo "DEBUG: start-stop-daemon failed." >> $DEBUG_LOGFILE
     else
         log_end_msg 0
+        echo "DEBUG: Service started successfully." >> $DEBUG_LOGFILE
     fi
 }
 
 stop() {
-    if [ ! -f $PIDFILE ]; then
+    if [ ! -f "$PIDFILE" ]; then
         log_daemon_msg "$NAME não está em execução"
         return 1
     fi
     
     log_daemon_msg "Parando $NAME"
-    start-stop-daemon --stop --quiet --pidfile $PIDFILE --retry 5
+    start-stop-daemon --stop --quiet --pidfile "$PIDFILE" --retry 5
     
-    # Garante que o arquivo PID seja removido
-    if [ -f $PIDFILE ]; then
-        rm -f $PIDFILE
+    if [ -f "$PIDFILE" ]; then
+        rm -f "$PIDFILE"
     fi
     
     log_end_msg $?
 }
 
 status() {
-    status_of_proc -p $PIDFILE "$GUNICORN_EXEC" "$NAME"
+    status_of_proc -p "$PIDFILE" "$GUNICORN_EXEC" "$NAME"
     return $?
 }
 
@@ -113,7 +122,6 @@ case "$1" in
     restart)
         log_daemon_msg "Reiniciando $NAME"
         stop
-        # Aguarda um pouco antes de reiniciar
         sleep 1 
         start
         ;;
