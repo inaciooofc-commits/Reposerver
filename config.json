@@ -1,7 +1,7 @@
 {
   "background_music": "https://cdn.pixabay.com/download/audio/2021/10/19/audio_4a93807111.mp3?filename=anime-ambience-9832.mp3",
   "panel_title": "Anime Pulse Server",
-  "secret_key": "1c28ac8ebb301aa3d52cf9f870e6895306c556a77bc9fff0",
+  "secret_key": "reposerver_anime_secret_2026",
   "theme_accent": "#7c4dff",
   "theme_second": "#ff6cd7",
   "theme_bg": "#090b1f",
@@ -14,6 +14,7 @@
   "background_image": "",
   "cloudflare_api_token": "",
   "cloudflare_zone_id": "",
-  "master_key": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
-  "is_registered": false
+  "cloudflare_tunnel_token": "",
+  "cloudflare_tunnel_name": "reposerver-tunnel",
+  "remote_access_key": ""
 }
