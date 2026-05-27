@@ -1,38 +1,238 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ app_name }}</title>
+    <title>Anti-X Panel - Reposerver</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    
     <style>
-        body {
-            background-color: #0a0a14;
-            color: #e0e0e0;
-            font-family: 'Courier New', Courier, monospace;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            text-align: center;
-            border: 1px solid #00ffff;
-            padding: 40px;
-            box-shadow: 0 0 20px #00ffff, inset 0 0 20px #00ffff;
-            background-color: rgba(0, 255, 255, 0.05);
-        }
-        h1 {
-            color: #00ffff;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-        }
+        /* Custom dark theme for tailwind */
+        body { background-color: #111827; color: #d1d5db; }
+        .card { background-color: #1f2937; border: 1px solid #374151; }
+        .table-header { background-color: #374151; }
+        .terminal-container { padding: 8px; background-color: #000; border-radius: 4px; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>{{ app_name }}</h1>
-        <p>Core System Online. Awaiting module initialization...</p>
+<body x-data="panel()" x-init="init()" class="p-4 md:p-6">
+
+    <header class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Anti-X Panel</h1>
+            <p class="text-gray-400">Dashboard de Monitoramento e Controle</p>
+        </div>
+        <div class="flex items-center space-x-2">
+            <div x-show="connected" class="flex items-center text-green-400">
+                <span class="h-3 w-3 bg-green-500 rounded-full mr-2"></span>
+                <span>Conectado</span>
+            </div>
+            <div x-show="!connected" class="flex items-center text-red-400">
+                <span class="h-3 w-3 bg-red-500 rounded-full mr-2"></span>
+                <span>Desconectado</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Métricas do Sistema -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4 rounded-lg">
+            <h3 class="text-gray-400">CPU</h3>
+            <p class="text-3xl font-bold text-white"><span x-text="system.cpu.percent">0</span>%</p>
+        </div>
+        <div class="card p-4 rounded-lg">
+            <h3 class="text-gray-400">Memória RAM</h3>
+            <p class="text-3xl font-bold text-white"><span x-text="system.memory.percent">0</span>%</p>
+            <p class="text-sm text-gray-500"><span x-text="system.memory.used">0</span>GB / <span x-text="system.memory.total">0</span>GB</p>
+        </div>
+        <div class="card p-4 rounded-lg">
+            <h3 class="text-gray-400">Disco</h3>
+            <p class="text-3xl font-bold text-white"><span x-text="system.disk.percent">0</span>%</p>
+            <p class="text-sm text-gray-500"><span x-text="system.disk.used">0</span>GB / <span x-text="system.disk.total">0</span>GB</p>
+        </div>
+        <div class="card p-4 rounded-lg">
+            <h3 class="text-gray-400">Uptime</h3>
+            <p class="text-xl font-bold text-white" x-text="system.uptime">-</p>
+        </div>
     </div>
+
+    <!-- Abas -->
+    <div class="mb-4 border-b border-gray-700">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button @click="activeTab = 'processos'" :class="{ 'border-indigo-500 text-indigo-400': activeTab === 'processos', 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500': activeTab !== 'processos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Processos</button>
+            <button @click="activeTab = 'docker'" :class="{ 'border-indigo-500 text-indigo-400': activeTab === 'docker', 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500': activeTab !== 'docker' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Docker</button>
+            <button @click="activeTab = 'terminal'" :class="{ 'border-indigo-500 text-indigo-400': activeTab === 'terminal', 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500': activeTab !== 'terminal' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Terminal</button>
+            <button @click="activeTab = 'controles'" :class="{ 'border-indigo-500 text-indigo-400': activeTab === 'controles', 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500': activeTab !== 'controles' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Controles</button>
+        </nav>
+    </div>
+
+    <!-- Conteúdo das Abas -->
+    <div class="card p-4 rounded-lg">
+        <!-- Processos -->
+        <div x-show="activeTab === 'processos'">
+             <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="table-header">
+                        <tr>
+                            <th class="p-2 text-left">PID</th>
+                            <th class="p-2 text-left">Usuário</th>
+                            <th class="p-2 text-left">CPU%</th>
+                            <th class="p-2 text-left">MEM%</th>
+                            <th class="p-2 text-left">Comando</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="proc in processes" :key="proc.pid">
+                            <tr class="border-b border-gray-700 hover:bg-gray-700">
+                                <td class="p-2" x-text="proc.pid"></td>
+                                <td class="p-2" x-text="proc.user"></td>
+                                <td class="p-2" x-text="proc.cpu"></td>
+                                <td class="p-2" x-text="proc.mem"></td>
+                                <td class="p-2 truncate" x-text="proc.command"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Docker -->
+        <div x-show="activeTab === 'docker'">
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="table-header">
+                        <tr>
+                            <th class="p-2 text-left">ID</th>
+                            <th class="p-2 text-left">Imagem</th>
+                            <th class="p-2 text-left">Comando</th>
+                            <th class="p-2 text-left">Status</th>
+                            <th class="p-2 text-left">Portas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="container in containers" :key="container.id">
+                            <tr class="border-b border-gray-700 hover:bg-gray-700">
+                                <td class="p-2 font-mono text-xs" x-text="container.id.substring(0, 12)"></td>
+                                <td class="p-2" x-text="container.image"></td>
+                                <td class="p-2 truncate" x-text="container.command"></td>
+                                <td class="p-2"><span class="px-2 py-1 text-xs rounded-full" :class="container.status.includes('Up') ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'" x-text="container.status"></span></td>
+                                <td class="p-2" x-text="container.ports"></td>
+                            </tr>
+                        </template>
+                        <tr x-show="containers.length === 0">
+                            <td colspan="5" class="p-4 text-center text-gray-500">Nenhum contêiner Docker encontrado.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Terminal -->
+        <div x-show="activeTab === 'terminal'">
+            <div class="terminal-container">
+                <div id="terminal"></div>
+            </div>
+        </div>
+
+        <!-- Controles -->
+        <div x-show="activeTab === 'controles'">
+            <h3 class="text-xl font-bold mb-4">Controles do Serviço</h3>
+            <div class="flex space-x-4">
+                <button @click="controlService('reiniciar')" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">Reiniciar Serviço</button>
+                <button @click="controlService('parar')" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Parar Serviço</button>
+                <button @click="controlService('iniciar')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Iniciar Serviço</button>
+            </div>
+            <div x-show="controlResponse" class="mt-4 p-3 rounded" :class="controlStatus === 'sucesso' ? 'bg-green-800 text-green-200' : 'bg-red-800 text-red-200'" x-text="controlResponse"></div>
+        </div>
+    </div>
+
+<script>
+    function panel() {
+        return {
+            connected: false,
+            socket: null,
+            system: { cpu: {}, memory: {}, disk: {}, uptime: '-' },
+            processes: [],
+            containers: [],
+            activeTab: 'processos',
+            controlResponse: null,
+            controlStatus: null,
+            term: null,
+
+            init() {
+                this.connectSocketIO();
+                this.initTerminal();
+            },
+
+            connectSocketIO() {
+                this.socket = io('/antix');
+
+                this.socket.on('connect', () => {
+                    this.connected = true;
+                    this.socket.emit('solicitar_dados_iniciais');
+                });
+
+                this.socket.on('disconnect', () => { this.connected = false; });
+
+                this.socket.on('atualizacao_sistema', (data) => {
+                    this.system = {
+                        cpu: { percent: data.cpu.percent.toFixed(1) },
+                        memory: {
+                            percent: data.memory.percent.toFixed(1),
+                            used: (data.memory.used / 1e9).toFixed(2),
+                            total: (data.memory.total / 1e9).toFixed(2)
+                        },
+                        disk: {
+                            percent: data.disk.percent.toFixed(1),
+                            used: (data.disk.used / 1e9).toFixed(2),
+                            total: (data.disk.total / 1e9).toFixed(2)
+                        },
+                        uptime: data.uptime
+                    };
+                });
+
+                this.socket.on('atualizacao_processos', (data) => { 
+                    this.processes = data.processos.sort((a, b) => b.cpu - a.cpu).slice(0, 100); 
+                });
+
+                this.socket.on('atualizacao_docker', (data) => { this.containers = data.containers; });
+
+                this.socket.on('terminal_saida', (data) => { 
+                    if(this.term) this.term.write(data.data); 
+                });
+            },
+
+            initTerminal() {
+                this.term = new XTerm({ convertEol: true, cursorBlink: true, theme: { background: '#000' }});
+                this.term.open(document.getElementById('terminal'));
+                this.term.onData(data => {
+                    this.socket.emit('terminal_entrada', { data });
+                });
+                this.term.write('Bem-vindo ao terminal interativo!\r\n$ ');
+            },
+
+            async controlService(action) {
+                try {
+                    const response = await fetch('/api/custom/servico/controle', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ acao: action })
+                    });
+                    const data = await response.json();
+                    this.controlStatus = data.status;
+                    this.controlResponse = data.mensagem || data.erro;
+                } catch (err) {
+                    this.controlStatus = 'falha';
+                    this.controlResponse = 'Erro de comunicação com a API.';
+                }
+                setTimeout(() => this.controlResponse = null, 5000);
+            }
+        }
+    }
+</script>
+
 </body>
 </html>

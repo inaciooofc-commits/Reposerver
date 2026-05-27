@@ -1,18 +1,11 @@
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
+# Ambientes Virtuais
 venv/
-build/
-dist/
-*.egg-info/
-.env
-central.log
-server.log
-game.log
-updater.log
-status.json
-*.sqlite3
-whatsapp/node_modules/
+*.pyc
+__pycache__/
+
+# Arquivos de Sistema
+.DS_Store
+
+# Arquivos de log e PID
+*.log
+*.pid
