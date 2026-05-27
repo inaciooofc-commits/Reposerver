@@ -1,28 +1,25 @@
-from flask import Blueprint, render_template
-from functools import wraps
+from flask import Blueprint, render_template, current_app
 
-# For now, we will create a placeholder for admin checks.
-# In a real app, this would check a user's session or token.
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Placeholder: In a real app, you'd check user roles from a session.
-        # For now, we allow access.
-        return f(*args, **kwargs)
-    return decorated_function
-
-# All routes for the Anti X Panel will be here
+# O Blueprint para o painel foi movido para cá para ser mais explícito
 antix_panel_bp = Blueprint(
     'antix_panel',
     __name__,
+    url_prefix='/antix',  # Todas as rotas aqui começarão com /antix
     template_folder='templates',
     static_folder='static'
 )
 
-@antix_panel_bp.route('/antix')
-@admin_required
+@antix_panel_bp.route('/')
 def dashboard():
-    """The main dashboard for the Anti X Panel."""
-    # Pass initial data to the template.
-    # More data will be streamed via WebSockets.
+    """Serve a página principal do painel (o shell)."""
     return render_template("antix_panel.html", title="Anti X Dashboard")
+
+@antix_panel_bp.route('/components/<component_name>')
+def load_component(component_name: str):
+    """Carrega dinamicamente os componentes do painel para o HTMX."""
+    try:
+        template_path = f'components/{component_name}.html'
+        return render_template(template_path)
+    except Exception as e:
+        current_app.logger.error(f"Componente do painel '{component_name}' não encontrado: {e}")
+        return f'<div class="text-red-500">Erro: Componente do painel \'{component_name}\' não encontrado.</div>', 404

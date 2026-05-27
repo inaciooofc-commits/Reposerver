@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+ddddddddddddddddddddddddddddddddddd<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
     <link rel="stylesheet" href="{{ url_for('antix_panel.static', filename='css/antix.css') }}">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.1.0/lib/xterm.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.1.0/css/xterm.min.css" />
@@ -21,49 +22,8 @@
             </nav>
         </header>
 
-        <main>
-            <div id="system-monitor" class="widget-container">
-                <h2>Live System Monitor</h2>
-                <div class="grid-monitor">
-                    <div class="metric" id="cpu-usage">CPU: <span>--</span>%</div>
-                    <div class="metric" id="ram-usage">RAM: <span>--</span>%</div>
-                    <div class="metric" id="disk-usage">DISK: <span>--</span>%</div>
-                    <div class="metric" id="network-traffic">NET I/O: <span>--</span></div>
-                </div>
-            </div>
-
-            <div id="terminal" class="widget-container">
-                <h2>Live Terminal</h2>
-                <div id="terminal-container"></div>
-            </div>
-
-            <div id="process-manager" class="widget-container">
-                <h2>Process Manager</h2>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr><th>PID</th><th>Process</th><th>CPU %</th><th>Memory</th><th>User</th></tr>
-                        </thead>
-                        <tbody id="process-list">
-                            <!-- Process data will be injected here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="docker-manager" class="widget-container">
-                <h2>Docker Manager</h2>
-                <div class="table-container">
-                     <table>
-                        <thead>
-                            <tr><th>ID</th><th>Image</th><th>Status</th><th>Ports</th><th>Name</th></tr>
-                        </thead>
-                        <tbody id="docker-containers">
-                            <!-- Container data will be injected here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <main hx-get="{{ url_for('antix_panel.load_component', component_name='dashboard') }}" hx-trigger="load">
+            <!-- O conteúdo do dashboard será carregado aqui pelo HTMX -->
         </main>
     </div>
     <script src="{{ url_for('antix_panel.static', filename='js/antix.js') }}"></script>

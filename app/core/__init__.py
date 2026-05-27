@@ -9,10 +9,10 @@ from config.settings import config_by_name
 
 def create_app(config_name: str) -> Flask:
     """Factory para criar e configurar a instância da aplicação Flask."""
-    app = Flask(__name__, 
+    app = Flask(__name__,
               instance_relative_config=True,
-              static_folder='../../frontend/static', # Aponta para o novo local de estáticos
-              template_folder='../../frontend/templates') # Aponta para o novo local de templates
+              static_folder='../../frontend/static',
+              template_folder='../../frontend/templates')
 
     # 1. Carregar configuração
     config = config_by_name[config_name]
@@ -48,10 +48,21 @@ def create_app(config_name: str) -> Flask:
     app.logger.info(f"Reposerver iniciando no ambiente '{config_name}'.")
 
     # 4. Registrar Blueprints
+    # Blueprint principal para rotas de UI e componentes
     from app.api.endpoints.main_views import main_bp
     app.register_blueprint(main_bp)
     app.logger.info("Blueprint 'main' registrado.")
 
+    # Blueprint para o painel de administração AntiX
+    from app.modules.antix_panel.routes import antix_panel_bp
+    app.register_blueprint(antix_panel_bp, url_prefix='/antix')
+    app.logger.info("Blueprint 'antix_panel' registrado.")
+
+    # Blueprint para a API do RPG
+    from app.api.endpoints.rpg_api import rpg_api_bp
+    app.register_blueprint(rpg_api_bp, url_prefix='/api/rpg')
+    app.logger.info("Blueprint 'rpg_api' registrado.")
+    
     # 5. Adicionar um endpoint de healthcheck/ping
     @app.route('/ping')
     def ping():
