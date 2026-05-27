@@ -1,16 +1,32 @@
 from run import socketio
+from flask import request
 import time
+import json
+import threading
+import os
+
 from app.modules.antix_panel.monitoring.services import get_system_usage
 from app.modules.antix_panel.process_manager.services import get_process_list
 from app.modules.antix_panel.docker_manager.services import get_docker_containers
 
-# A dictionary to hold our background tasks
+# --- Configurações de Status ---
+STATUS_FILE_PATH = "/var/run/reposerver.status.json"
+STATUS_UPDATE_INTERVAL = 5 # em segundos
+
+# --- Armazenamento de estado em memória ---
 background_tasks = {
-    "system_monitor": None
+    "system_monitor": None,
+    "status_writer": None
 }
 
+# Dicionário para rastrear clientes conectados
+# Estrutura: { a_sid: { "ip": "1.2.3.4", "connected_at": 1678886400.0 }, ... }
+connected_clients = {}
+
+# --- Tarefas em Background ---
+
 def system_monitor_task():
-    """A background task that emits system stats every 2 seconds."""
+    """Uma tarefa em greenlet (SocketIO) que emite estatísticas do sistema via WebSocket."""
     while True:
         stats = get_system_usage()
         socketio.emit('system_update', stats, namespace='/antix')
@@ -21,20 +37,65 @@ def system_monitor_task():
         containers = get_docker_containers()
         socketio.emit('docker_update', {'containers': containers}, namespace='/antix')
 
-        socketio.sleep(2) # Use socketio.sleep for cooperative multitasking
+        socketio.sleep(2) # Importante usar socketio.sleep em tarefas gerenciadas pelo socketio
+
+def status_writer_task():
+    """Uma tarefa em thread que escreve o status dos clientes conectados para um arquivo."""
+    while True:
+        try:
+            # Prepara os dados para serem serializados
+            # Faz uma cópia da lista de valores para segurança de thread
+            client_list = list(connected_clients.values())
+            status_data = {
+                "connected_clients": client_list,
+                "timestamp": time.time()
+            }
+            
+            # Escreve os dados em um arquivo temporário e depois o renomeia
+            # para garantir atomicidade e evitar que o painel leia um arquivo parcialmente escrito.
+            temp_path = STATUS_FILE_PATH + ".tmp"
+            with open(temp_path, 'w') as f:
+                json.dump(status_data, f)
+            os.rename(temp_path, STATUS_FILE_PATH)
+
+        except Exception as e:
+            print(f"Erro no status_writer_task: {e}")
+        
+        time.sleep(STATUS_UPDATE_INTERVAL) # time.sleep normal é seguro em uma thread separada
+
+# --- Handlers de Eventos SocketIO ---
 
 @socketio.on('connect', namespace='/antix')
 def on_connect():
-    print('Anti X Panel client connected.')
-    # Start the background task if it hasn't been started yet
+    print(f'Anti X Panel client connected: {request.sid} from {request.remote_addr}')
+    
+    # Adiciona cliente ao nosso rastreador
+    connected_clients[request.sid] = {
+        "ip": request.remote_addr,
+        "connected_at": time.time()
+    }
+
+    # Inicia as tarefas em background se for a primeira conexão
     if background_tasks.get("system_monitor") is None:
-        print("Starting background system monitor...")
+        print("Iniciando tarefa de monitoramento do sistema...")
         task = socketio.start_background_task(system_monitor_task)
         background_tasks["system_monitor"] = task
 
+    if background_tasks.get("status_writer") is None:
+        print("Iniciando tarefa de escrita de status...")
+        # Para IO, uma thread daemon padrão é eficiente e segura.
+        status_thread = threading.Thread(target=status_writer_task, daemon=True)
+        status_thread.start()
+        background_tasks["status_writer"] = status_thread
+
+@socketio.on('disconnect', namespace='/antix')
+def on_disconnect():
+    print(f'Anti X Panel client disconnected: {request.sid}')
+    # Remove cliente do nosso rastreador
+    connected_clients.pop(request.sid, None)
+
 @socketio.on('request_initial_data', namespace='/antix')
 def on_request_initial_data():
-    # Immediately send the current data upon request
     stats = get_system_usage()
     socketio.emit('system_update', stats, namespace='/antix')
     procs = get_process_list()
@@ -44,20 +105,12 @@ def on_request_initial_data():
 
 @socketio.on('terminal_in', namespace='/antix')
 def on_terminal_in(data):
-    # This is a placeholder. A real implementation needs a PTY.
-    # For now, we'll just echo back.
     command = data.get('data', '')
-    # In a real scenario, you'd write this to the PTY of a shell process
-    # and the PTY's output would be read and emitted back.
-    # For demonstration, we simulate a simple command.
+    # Simulação simples
     if command == 'ls\r':
         response = 'file1.txt  file2.py  README.md\r\n$ '
     elif command:
-        response = f"command '{(command or "").strip()}' executed (simulation).\r\n$ "
+        response = f"comando '{(command or \"\").strip()}' executado (simulação).\r\n$ "
     else:
         response = ""
     socketio.emit('terminal_out', {'data': response}, namespace='/antix')
-
-@socketio.on('disconnect', namespace='/antix')
-def on_disconnect():
-    print('Anti X Panel client disconnected.')
