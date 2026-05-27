@@ -1,9 +1,9 @@
-# Arquivo de dependências do Python
-# Instale todas com: pip install -r requirements.txt
+# Frameworks e Servidor WSGI
+Flask==2.3.3
+gunicorn==21.2.0
+python-dotenv==1.0.0
+eventlet==0.33.3 # Para WebSockets com Gunicorn
 
-Flask==2.2.2
-Flask-SocketIO==5.3.3
-Flask-Cors==3.0.10
-gunicorn==20.1.0
-psutil==5.9.4
-eventlet==0.33.3
+# Banco de Dados (será usado em breve)
+# SQLAlchemy==2.0.22
+# Flask-SQLAlchemy==3.1.1

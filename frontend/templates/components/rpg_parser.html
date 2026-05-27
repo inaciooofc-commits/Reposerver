@@ -1,0 +1,48 @@
+<!-- components/rpg_parser.html -->
+<div x-data="{ charString: 'name: Gandalf, class: Wizard, level: 20, stats: {int: 25; wis: 22}', response: null, error: null }">
+    <div class="p-4 bg-gray-800 rounded-lg shadow-lg">
+        <h3 class="text-xl font-semibold text-white">Testar Parser C++ de RPG</h3>
+        <p class="text-gray-400 mt-1">Envie uma string formatada para a API (que executa código C++) para ver o resultado do parsing.</p>
+
+        <div class="mt-4">
+            <label for="charString" class="block text-sm font-medium text-gray-300">String do Personagem</label>
+            <textarea id="charString" x-model="charString" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-200" rows="3"></textarea>
+        </div>
+
+        <button 
+            @click="response = null; error = null; htmx.ajax('POST', '/api/rpg/parse', { target: '#response-container', swap: 'innerHTML', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ character_string: charString }) }) "
+            class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            Analisar Personagem
+        </button>
+
+        <div id="response-container" class="mt-4 p-4 bg-gray-900 rounded-md">
+            <!-- O resultado do HTMX será inserido aqui, ou mensagens de estado -->
+             <div hx-target="this" hx-swap="innerHTML">
+                <template x-if="response">
+                    <pre class="text-green-400"><code x-text="JSON.stringify(response, null, 2)"></code></pre>
+                </template>
+                <template x-if="error">
+                    <p class="text-red-400" x-text="error"></p>
+                </template>
+                <p class="text-gray-500" x-show="!response && !error">Aguardando para enviar dados...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Captura os eventos do HTMX para atualizar o estado do Alpine.js
+    document.addEventListener('htmx:afterRequest', function(evt) {
+        const target = document.querySelector('[x-data]');
+        if (target) {
+            const data = JSON.parse(evt.detail.xhr.responseText);
+            if (evt.detail.successful) {
+                target.__x.$data.response = data;
+                target.__x.$data.error = null;
+            } else {
+                target.__x.$data.response = null;
+                target.__x.$data.error = data.error || 'Ocorreu um erro desconhecido.';
+            }
+        }
+    });
+</script>

@@ -5,57 +5,102 @@
 # Required-Stop:     $remote_fs $network
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Start and stop the Reposerver
-# Description:       A simple Flask application server.
+# Short-Description: Start and stop the Reposerver Platform
+# Description:       High-performance hybrid Python/C++ application server.
 ### END INIT INFO
 
-# -- Configurações --
-DIR="/opt/reposerver"
-USER="root" # Ou um usuário dedicado se preferir
+# ====================[ CONFIGURAÇÃO ]====================
+# Diretório principal da aplicação
+APP_DIR="/opt/reposerver"
+
+# Usuário de sistema dedicado para rodar a aplicação (NÃO use root)
+APP_USER="reposerver"
+
+# Nome do serviço
 NAME="reposerver"
-VENV_DIR="$DIR/venv"
+
+# Caminho para o ambiente virtual e executável do Gunicorn
+VENV_DIR="$APP_DIR/venv"
 GUNICORN_EXEC="$VENV_DIR/bin/gunicorn"
-APP_MODULE="run:app"
+
+# Ponto de entrada da aplicação Flask (formato: nome_do_arquivo:instancia_do_app)
+APP_MODULE="reposerver_main:app"
+
+# Arquivo para armazenar o ID do processo (PID)
+PIDFILE="/var/run/$NAME.pid"
+
+# Diretório e arquivo de log
+LOG_DIR="$APP_DIR/logs"
+LOGFILE="$LOG_DIR/gunicorn.log"
+
+# Configurações do Gunicorn
+# O número de workers é geralmente (2 * número de cores da CPU) + 1
+WORKERS=3 
+# Usar 'eventlet' é crucial para WebSockets e operações assíncronas
+WORKER_CLASS="eventlet"
 HOST="0.0.0.0"
 PORT="5000"
-WORKERS=4
-WORKER_CLASS="eventlet"
-PIDFILE="/var/run/$NAME.pid"
-LOGFILE="/var/log/$NAME.log"
+GUNICORN_ARGS="--workers $WORKERS --worker-class $WORKER_CLASS --bind $HOST:$PORT --log-file $LOGFILE"
 
-# -- Funções --
+# Carrega funções LSB (Linux Standard Base)
 . /lib/lsb/init-functions
 
+# ====================[ FUNÇÕES DO SERVIÇO ]====================
+
+# Garante que os diretórios necessários existam e tenham as permissões corretas
+prepare_dirs() {
+    mkdir -p $LOG_DIR
+    chown -R $APP_USER:$APP_USER $LOG_DIR
+    mkdir -p /var/run
+    chown -R $APP_USER:$APP_USER /var/run
+}
+
 start() {
+    prepare_dirs
+    
     if [ -f $PIDFILE ]; then
-        log_daemon_msg "$NAME is already running"
+        log_daemon_msg "$NAME já está em execução (PID: $(cat $PIDFILE))"
         return 1
     fi
-    log_daemon_msg "Starting $NAME"
-    cd $DIR || return 1
+    
+    log_daemon_msg "Iniciando $NAME"
+    
+    cd $APP_DIR || return 1
+    
     start-stop-daemon --start --quiet --pidfile $PIDFILE --make-pidfile \
-        --background --chuid $USER --exec $GUNICORN_EXEC -- \
-        --bind $HOST:$PORT \
-        --workers $WORKERS \
-        --worker-class $WORKER_CLASS \
-        --log-file $LOGFILE \
-        $APP_MODULE
-    log_end_msg $?
+        --background --chuid $APP_USER --chdir $APP_DIR --startas /bin/bash -- \
+        -c "exec $GUNICORN_EXEC $APP_MODULE $GUNICORN_ARGS >> $LOGFILE 2>&1"
+
+    # Aguarda um pouco e verifica se o processo realmente iniciou
+    sleep 2
+    if ! status > /dev/null; then
+        log_end_msg 1
+        log_failure_msg "Falha ao iniciar. Verifique os logs em $LOGFILE e $APP_DIR/logs/reposerver.log"
+    else
+        log_end_msg 0
+    fi
 }
 
 stop() {
     if [ ! -f $PIDFILE ]; then
-        log_daemon_msg "$NAME is not running"
+        log_daemon_msg "$NAME não está em execução"
         return 1
     fi
-    log_daemon_msg "Stopping $NAME"
+    
+    log_daemon_msg "Parando $NAME"
     start-stop-daemon --stop --quiet --pidfile $PIDFILE --retry 5
-    rm -f $PIDFILE
+    
+    # Garante que o arquivo PID seja removido
+    if [ -f $PIDFILE ]; then
+        rm -f $PIDFILE
+    fi
+    
     log_end_msg $?
 }
 
 status() {
-    status_of_proc -p $PIDFILE "$GUNICORN_EXEC" "$NAME" && exit 0 || exit $?
+    status_of_proc -p $PIDFILE "$GUNICORN_EXEC" "$NAME"
+    return $?
 }
 
 case "$1" in
@@ -66,14 +111,17 @@ case "$1" in
         stop
         ;;
     restart)
+        log_daemon_msg "Reiniciando $NAME"
         stop
+        # Aguarda um pouco antes de reiniciar
+        sleep 1 
         start
         ;;
     status)
         status
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|status}"
+        echo "Uso: /etc/init.d/$NAME {start|stop|restart|status}"
         exit 1
         ;;
 esac
