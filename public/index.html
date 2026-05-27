@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zarcos</title>
+    <link rel="stylesheet" href="css/antix.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.13.0/xterm.min.css" />
+    <style>
+        body {
+            background-color: #000000;
+            color: #0000FF;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            border: 1px solid #0000FF;
+            padding: 40px;
+            box-shadow: 0 0 20px #0000FF, inset 0 0 20px #0000FF;
+            background-color: rgba(0, 0, 255, 0.05);
+        }
+        h1 {
+            color: #0000FF;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+        #terminal-container {
+            width: 80vw;
+            height: 50vh;
+            border: 1px solid #0000FF;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Zarcos</h1>
+        <p>Core System Online. Awaiting module initialization...</p>
+        <div id="antix-dashboard">
+            <div id="terminal-container"></div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xterm/4.13.0/xterm.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="js/antix.js"></script>
+</body>
+</html>
