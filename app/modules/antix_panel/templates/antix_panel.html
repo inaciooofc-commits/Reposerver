@@ -1,4 +1,4 @@
-ddddddddddddddddddddddddddddddddddd<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -15,15 +15,15 @@ ddddddddddddddddddddddddddddddddddd<!DOCTYPE html>
         <header>
             <h1>ANTI X PANEL</h1>
             <nav>
-                <a href="#system-monitor">Monitor</a>
-                <a href="#terminal">Terminal</a>
-                <a href="#process-manager">Processes</a>
-                <a href="#docker-manager">Docker</a>
+                <a href="/antix/system-monitor" hx-get="{{ url_for('antix_panel.load_component', component_name='system_monitor') }}" hx-target="main" hx-push-url="true">Monitor</a>
+                <a href="/antix/terminal" hx-get="{{ url_for('antix_panel.load_component', component_name='terminal') }}" hx-target="main" hx-push-url="true">Terminal</a>
+                <a href="/antix/process-manager" hx-get="{{ url_for('antix_panel.load_component', component_name='process_manager') }}" hx-target="main" hx-push-url="true">Processes</a>
+                <a href="/antix/docker-manager" hx-get="{{ url_for('antix_panel.load_component', component_name='docker_manager') }}" hx-target="main" hx-push-url="true">Docker</a>
             </nav>
         </header>
 
-        <main hx-get="{{ url_for('antix_panel.load_component', component_name='dashboard') }}" hx-trigger="load">
-            <!-- O conteúdo do dashboard será carregado aqui pelo HTMX -->
+        <main hx-get="{{ url_for('antix_panel.load_component', component_name=page) }}" hx-trigger="load">
+            <!-- O conteúdo da página será carregado aqui pelo HTMX -->
         </main>
     </div>
     <script src="{{ url_for('antix_panel.static', filename='js/antix.js') }}"></script>

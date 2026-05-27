@@ -10,9 +10,12 @@ antix_panel_bp = Blueprint(
 )
 
 @antix_panel_bp.route('/')
-def dashboard():
+@antix_panel_bp.route('/<page>')
+def dashboard(page=None):
     """Serve a página principal do painel (o shell)."""
-    return render_template("antix_panel.html", title="Anti X Dashboard")
+    if not page:
+        page = 'dashboard'
+    return render_template("antix_panel.html", title="Anti X Dashboard", page=page)
 
 @antix_panel_bp.route('/components/<component_name>')
 def load_component(component_name: str):
