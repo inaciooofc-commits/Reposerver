@@ -1,11 +1,7 @@
-# Ambientes Virtuais
-venv/
-*.pyc
+
+# Ignorar o ambiente virtual do Python
+.venv_local/
+
+# Ignorar caches do Python
 __pycache__/
-
-# Arquivos de Sistema
-.DS_Store
-
-# Arquivos de log e PID
-*.log
-*.pid
+*.pyc
