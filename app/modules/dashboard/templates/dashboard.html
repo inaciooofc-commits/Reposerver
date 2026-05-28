@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('dashboard.static', filename='css/dashboard.css') }}">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+</head>
+<body>
+    <div id="user-dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Dashboard</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard/player" hx-get="{{ url_for('dashboard.load_component', component_name='player') }}" hx-target="main" hx-push-url="true">Player</a>
+                <a href="/dashboard/profile" hx-get="{{ url_for('dashboard.load_component', component_name='profile') }}" hx-target="main" hx-push-url="true">Profile</a>
+                <a href="/dashboard/store" hx-get="{{ url_for('dashboard.load_component', component_name='store') }}" hx-target="main" hx-push-url="true">Store</a>
+            </nav>
+        </aside>
+        <main id="main-content" hx-get="{{ url_for('dashboard.load_component', component_name=page) }}" hx-trigger="load">
+            <!-- Page content loads here -->
+        </main>
+    </div>
+    <script src="{{ url_for('dashboard.static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

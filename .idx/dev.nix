@@ -2,15 +2,22 @@
 # see: https://firebase.google.com/docs/studio/customize-workspace
 { pkgs, ... }: {
   # Which nixpkgs channel to use.
-  channel = "stable-24.05"; # or "unstable"
+  channel = "unstable"; # or "unstable"
 
   # Use https://search.nixos.org/packages to find packages
   packages = [
-    pkgs.python311
-    pkgs.python311Packages.pip
+    (pkgs.python311.withPackages (ps: with ps; [
+      flask
+      flask-socketio
+      gunicorn
+      python-dotenv
+      eventlet
+      google-api-python-client
+      python-socketio # Pacote cliente para o teste automatizado
+      pybind11
+    ]))
     pkgs.nodejs_20
     pkgs.gcc
-    pkgs.pybind11
     pkgs.gnumake
   ];
 
@@ -19,16 +26,15 @@
   idx = {
     # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
     extensions = [
-      # "vscodevim.vim"
+      "ms-python.python"
+      "ms-python.debugpy"
     ];
 
     # Enable previews
     previews = {
       enable = true;
       previews = [{
-          # Example: run "npm run dev" with PORT set to IDX's defined port for previews,
-          # and show it in IDX's web preview panel
-          command = ["gunicorn" "-w" "2" "--bind" "0.0.0.0:5000" "reposerver_main:app"];
+          command = [ "python" "run.py" ];
           manager = "web";
         }];
     };
@@ -37,14 +43,10 @@
     workspace = {
       # Runs when a workspace is first created
       onCreate = {
-        install-deps = "pip install -r requirements.txt";
         build-cpp = "bash scripts/build_cpp.sh";
       };
       # Runs when the workspace is (re)started
-      onStart = {
-        # Example: start a background task to watch and re-build backend code
-        # watch-backend = "npm run watch-backend";
-      };
+      onStart = {};
     };
   };
 }
