@@ -1,7 +1,10 @@
+# Ignorar arquivos sensíveis e temporários
 
-# Ignorar o ambiente virtual do Python
-.venv_local/
-
-# Ignorar caches do Python
+.env
+*.log
+*.json
 __pycache__/
+venv/
+node_modules/
 *.pyc
+.DS_Store

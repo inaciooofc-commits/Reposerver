@@ -1,95 +1,57 @@
-# Anime Pulse Music Server
+# 🎵 Anime Pulse Music Server (Reposerver)
 
-Welcome to the Anime Pulse Music Server, a dedicated web-based control panel for managing a shared music playback experience, primarily designed for anime and gaming music enthusiasts.
+**Servidor de música compartilhada com AntiX Panel**
 
-This project provides a complete Flask-based web application that allows users to log in, queue up music from YouTube, and listen to a synchronized audio stream. It features an administrative backend for user and system management, credit-based playback control, and a sleek, modern interface.
+Uma aplicação Flask completa para streaming de música via YouTube, fila em tempo real e painel administrativo otimizado.
 
-## Features
+![Python](https://img.shields.io/badge/Python-3.9+-blue) ![Flask](https://img.shields.io/badge/Flask-3.x-black) ![Antix](https://img.shields.io/badge/Antix-Linux-green)
 
-- **Web-based Interface**: Control music playback from any browser.
-- **User Authentication**: Secure login system with roles (user and admin).
-- **Google OAuth Integration**: Optional one-click login via Google.
-- **YouTube Integration**: Play any public YouTube video as an audio track.
-- **Shared Queue**: All users listen to the same music queue.
-- **Credit System**: Users spend credits to queue music.
-- **Admin Panel**: Comprehensive dashboard for managing users, configuration, and monitoring the system.
-- **Modular Architecture**: Built with Flask Blueprints for clean, organized, and extensible code.
-- **Customizable Themes**: Easily change the panel's appearance via the admin settings.
-- **Git Integration**: Admins can pull the latest updates directly from the web interface.
+## ✨ Principais Funcionalidades
 
-## Project Structure
+- Fila compartilhada com Socket.IO
+- Download e streaming do YouTube (yt-dlp + mpv)
+- Sistema de créditos e pagamentos
+- Painel administrativo completo (AntiX Panel)
+- Suporte nativo ao **Antix Linux**
 
-The project is organized into a modular structure for better maintainability:
+## 🚀 Instalação Rápida no Antix
 
-```
-/project-root
-|-- central.log
-|-- server.log
-|-- config.json
-|-- users.json
-|-- payments.json
-|-- ip_log.json
-|-- status.json
-|-- server.py            # Main application entry point
-|-- config.py            # Centralized configuration management
-|-- utils.py             # Shared utility functions
-|-- routes/              # Flask Blueprints for modular routing
-|   |-- __init__.py
-|   |-- auth.py          # Authentication routes (login, logout, Google OAuth)
-|   |-- dashboard.py     # User dashboard routes
-|   |-- admin.py         # Admin panel routes and actions
-|   |-- api.py           # API endpoints (play, buy credits, etc.)
-|   |-- decorators.py    # Shared decorators (login_required, admin_required)
-|-- static/              # Static assets (CSS, JS, images)
-|   |-- css/
-|   |-- js/
-|   |-- img/
-|-- templates/           # HTML templates
-|   |-- admin.html
-|   |-- dashboard.html
-|   |-- login.html
-|-- README.md            # This file
-|-- COMMANDS.md          # Description of available bot commands
+```bash
+# Clone o repositório
+git clone https://github.com/inaciooofc-commits/Reposerver.git
+cd Reposerver
+
+# Dê permissão e rode o instalador
+chmod +x install_antix.sh
+./install_antix.sh
+
+# Inicie o servidor
+python3 reposerver_main.py
 ```
 
-## Setup and Installation
+Acesse no navegador: `http://localhost:5000` ou `http://seu-ip:5000`
 
-1.  **Clone the Repository**:
-    ```bash
-    git clone <your-repository-url>
-    cd <repository-folder>
-    ```
+## 📋 Pré-requisitos (Antix)
 
-2.  **Install Dependencies**:
-    It is highly recommended to use a virtual environment.
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    ```
+- mpv
+- redis-server
+- yt-dlp
+- python3-pip
+- build-essential
 
-3.  **Install `mpv`**:
-    The server relies on the `mpv` command-line media player for audio playback.
-    - **On Debian/Ubuntu**: `sudo apt-get install mpv`
-    - **On other systems**: Follow the instructions on the [mpv website](https://mpv.io/installation/).
+## 🛠 Comandos Úteis
 
-4.  **Configure the Server**:
-    - Create a `config.json` file in the root directory.
-    - At a minimum, you must set a `secret_key` for session management.
-    - See `config.py` for all available configuration options that can be set in `config.json` (e.g., Google API keys, Cloudflare settings, etc.).
+- `./install_antix.sh` → Instalação completa
+- `python3 reposerver_main.py --debug` → Modo debug
+- `python3 reposerver_main.py` → Modo produção
 
-5.  **Run the Server**:
-    ```bash
-    python server.py
-    ```
-    The server will be available at `http://0.0.0.0:5000` by default.
+## 📁 Estrutura Principal
 
-## First-time Admin Setup
+- `app/` → Código principal (módulos organizados)
+- `frontend/` → Templates e assets
+- `cpp_engine/` → Componentes de performance
+- `data/` → Banco de dados e arquivos locais
 
-- On the first run, no admin user exists.
-- You will need to manually create an admin user in the `users.json` file.
-- Set the user's `role` to `"admin"` and ensure the username starts with `"admin@"` to comply with the default validation rules.
+---
 
-## Contributing
-
-Contributions are welcome! If you find a bug or have a suggestion for a new feature, please open an issue or submit a pull request.
+**Desenvolvido para rodar leve no Antix Linux.**
